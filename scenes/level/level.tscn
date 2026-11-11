@@ -13,8 +13,6 @@
 
 [ext_resource type="Script" path="res://scripts/audio/game_audio.gd" id="11_audio"]
 
-[ext_resource type="Script" path="res://scripts/ui/web_lobby_ui.gd" id="12_web_lobby"]
-
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_main"]
 sky_top_color = Color(0.22, 0.46, 0.72, 1)
 sky_horizon_color = Color(0.66, 0.8, 0.92, 1)
@@ -98,6 +96,3 @@ script = ExtResource("10_hiding")
 
 [node name="GameAudio" type="Node3D" parent="."]
 script = ExtResource("11_audio")
-
-[node name="WebLobbyUI" type="CanvasLayer" parent="."]
-script = ExtResource("12_web_lobby")

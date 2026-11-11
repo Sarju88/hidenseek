@@ -18,10 +18,8 @@ func _command(args: Array) -> void:
  var command := str(args[0])
  var value := str(args[1]) if args.size() > 1 else ""
  match command:
-  "host": _level._on_host_pressed("Host", "blue")
+  "host": _level._on_host_pressed("Host", "blue", value)
   "join": _level._on_join_pressed("Guest", "green", value)
-  "accept": Network.web_lobby.accept_reply(value)
-  "invite": Network.web_lobby.create_invite()
   "pause": _level._show_pause_menu()
   "resume": _level.pause_menu._on_resume_pressed()
   "menu": _level.pause_menu._on_main_menu_pressed()
@@ -46,7 +44,7 @@ func _snapshot() -> void:
  # Inactive embedded browser panes throttle RAF. Poll the actual Godot network
  # and check timers explicitly so two background peers can be tested together.
  if multiplayer.has_multiplayer_peer(): multiplayer.poll()
- Network.web_lobby._process(0.0)
+ Network._process(0.0)
  var hiding := _level.get_node("HidingSystem")
  if multiplayer.has_multiplayer_peer() and multiplayer.is_server() and hiding.roles.size() != Network.players.size(): hiding._refresh_members()
  hiding._process(0.0)
@@ -59,13 +57,10 @@ func _snapshot() -> void:
   hidden[str(actor.name)] = actor.hidden_spot_id
  var system := _level.get_node("HidingSystem")
  var state := {"peer": multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 0,
-  "players": Network.players.keys(), "code": Network.web_lobby.code,
-  "status": Network.web_lobby.status, "lobby_open": _level.get_node("WebLobbyUI").is_open,
-  "main_menu": _level.main_menu.visible, "paused": _level.pause_menu.visible,
+  "players": Network.players.keys(), "status": Network.last_status,
+  "connecting": Network.is_connecting(), "main_menu": _level.main_menu.visible,
+  "paused": _level.pause_menu.visible, "session_host": Network.session_host_id,
   "quit_visible": _level.pause_menu.get_node("Overlay/Panel/MarginContainer/Buttons/Quit").visible,
   "main_quit_visible": _level.main_menu.get_node("MainContainer/MainMenu/Option4").visible,
-  "roles": system.roles, "bodies": bodies, "positions": positions, "hidden": hidden, "found": system.found_counts,
-  "connection": Network.web_lobby._connection.get_connection_state() if Network.web_lobby._connection else -1,
-  "gathering": Network.web_lobby._connection.get_gathering_state() if Network.web_lobby._connection else -1,
-  "process_frames": Engine.get_process_frames(), "paused_tree": get_tree().paused, "tick": Time.get_ticks_msec(), "gather_started": Network.web_lobby._gather_started, "candidate_count": Network.web_lobby._candidates.size(), "description_length": Network.web_lobby._description.length()}
+  "roles": system.roles, "bodies": bodies, "positions": positions, "hidden": hidden, "found": system.found_counts}
  JavaScriptBridge.get_interface("window").hnsState = JSON.stringify(state)

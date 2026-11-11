@@ -13,22 +13,35 @@ Browser build: https://sarju88.github.io/hidenseek/
 - R (or F6 on desktop): switch between hider and seeker in solo play.
 - White outline + hand + E keycap: an interactable hiding spot.
 
-The browser version supports peer-to-peer multiplayer with invite/reply codes:
+## Host and join by address
 
-1. Host selects **Host**, copies the invite code, and sends it to one friend.
-2. Friend pastes it into **Host invite** and selects **Join**.
-3. Friend copies the generated reply and sends it back to the host.
-4. Host pastes the reply into the invite panel and selects **Connect Friend**.
+1. In the desktop game, enter `127.0.0.1:8080` and click **Host**.
+2. Another desktop or browser client on the same computer enters
+   `127.0.0.1:8080` and clicks **Join**.
+3. For other computers, use the host computer's LAN/public address instead
+   of `127.0.0.1` (which always means the player's own computer).
 
-Use Escape → **Invite Player** (or **New Invite** in the panel) for another
-friend. Keep the host's game tab open and active. Resume and Main Menu work in
-the web pause menu; Quit is deliberately absent because browsers cannot close
-their own game runtime usefully.
+All clients now use WebSocket multiplayer. No invite/reply codes or pairing
+panels are involved. The host uses the port from the address field.
 
-WebRTC uses public STUN servers to discover direct routes. Some restrictive
-networks require a TURN relay, which is not configured. No signaling backend or
-Cloudflare account is needed for this two-way code exchange. Desktop LAN play
-uses ENet on port 8080; native and browser transports are separate.
+A dedicated server can also be started from this project:
+
+```sh
+./run_headless_server.sh --port=8080
+```
+
+Browsers cannot open a listening server port. Browser **Host** connects to the
+entered game server and starts a game there; **Join** connects to its existing
+game. A desktop Host or dedicated server must be running at that address.
+Browser Host reports an existing session and asks you to use Join instead.
+
+The GitHub Pages HTTPS build can join loopback addresses directly in supported
+browsers. Public internet servers must provide a secure `wss://` endpoint,
+typically through a TLS reverse proxy. GitHub Pages serves the game files;
+it does not run the game server. Local HTTP web builds can use plain `ws://`
+LAN servers. Explicit `ws://` and `wss://` URLs are accepted as well as IP:port.
+
+Quit is absent in web menus. Escape opens Pause; Resume and Main Menu work.
 
 ## Develop and export
 
@@ -47,6 +60,14 @@ editor plugin and unused prototype scenes/scripts. Output is a single-threaded
 WebGL 2 build that works on GitHub Pages without cross-origin isolation headers.
 
 See [deployment instructions](deploy/README.md) and [hiding/audio/camera notes](HIDING_SYSTEM.md).
+Build the Linux desktop/server executable with the same clean staging process:
+
+```sh
+python3 scripts/deploy/build_web.py --platform Linux
+# Desktop UI: exports/linux/HideSeek.x86_64
+# Dedicated: exports/linux/HideSeek.x86_64 --headless -- --port=8080
+```
+
 The `gh-pages` branch contains the generated browser build; `main` contains source.
 
 ## Credits

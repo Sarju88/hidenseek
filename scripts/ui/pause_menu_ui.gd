@@ -13,25 +13,12 @@ var pan := Vector2.ZERO
 func _ready() -> void:
 	if OS.has_feature("web"):
 		$Overlay/Panel/MarginContainer/Buttons/Quit.hide()
-		var invite := Button.new()
-		invite.text = "INVITE PLAYER"
-		invite.add_theme_font_size_override("font_size", 28)
-		invite.pressed.connect(func():
-			if Network.web_lobby and Network.web_lobby.hosting:
-				hide_menu()
-				var lobby := get_tree().current_scene.get_node_or_null("WebLobbyUI")
-				if lobby:
-					if Network.web_lobby.code.is_empty(): Network.web_lobby.create_invite()
-					lobby.show_panel())
-		$Overlay/Panel/MarginContainer/Buttons.add_child(invite)
 	resized.connect(_update_responsive_layout)
 	call_deferred("_update_responsive_layout")
 	hide()
 
 func show_menu() -> void:
 	show()
-	var invite := $Overlay/Panel/MarginContainer/Buttons.get_child(-1) as Button
-	if OS.has_feature("web") and invite: invite.visible = Network.web_lobby != null and Network.web_lobby.hosting
 	call_deferred("_update_responsive_layout")
 	resume_button.grab_focus()
 

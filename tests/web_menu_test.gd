@@ -5,20 +5,14 @@ func check(ok: bool, message: String) -> void:
   failed = true
   push_error(message)
 func _ready() -> void:
- var codec = load("res://scripts/network/web_lobby.gd")
- var offer := {"v": 1, "kind": "offer", "peer": 1234, "nonce": "0123456789abcdef0123456789abcdef", "sdp": "v=0\r\na=test\r\n", "ice": [{"m": "0", "i": 0, "c": "candidate:test"}]}
- var encoded: String = codec.encode_code(offer)
- check(codec.decode_code(encoded, "offer").get("peer") == 1234, "Invite round trip preserves assigned peer")
- check(codec.decode_code(" \n" + encoded + "\n", "offer").get("nonce") == offer.nonce, "Pasted whitespace is accepted")
- check(codec.decode_code(encoded, "answer").is_empty(), "Invite cannot be used as a reply")
- check(codec.decode_code("not-an-invite", "offer").is_empty(), "Malformed invite rejected")
- check(codec.decode_code("HNS1." + "A".repeat(33000), "offer").is_empty(), "Oversized invite rejected")
- var invalid := offer.duplicate(true)
- invalid.peer = 1
- check(codec.decode_code(codec.encode_code(invalid), "offer").is_empty(), "Host's reserved peer ID cannot be claimed")
- invalid = offer.duplicate(true)
- invalid.ice = [{"m": "0", "i": -1, "c": "candidate:test"}]
- check(codec.decode_code(codec.encode_code(invalid), "offer").is_empty(), "Invalid ICE candidate rejected")
+ var endpoint := Network.parse_server_address("127.0.0.1:8080")
+ check(endpoint.get("url") == "ws://127.0.0.1:8080", "IP:port works without a protocol prefix")
+ check(Network.parse_server_address("localhost:9001").get("port") == 9001, "Custom port is respected")
+ check(Network.parse_server_address("127.0.0.1").get("port") == Network.server_port, "Host without a port uses default")
+ check(Network.parse_server_address("wss://game.example.com/play").get("url") == "wss://game.example.com/play", "Secure public server with proxy path is supported")
+ check(Network.parse_server_address("[::1]:8080").get("url") == "ws://[::1]:8080", "IPv6 loopback is supported")
+ for bad in ["http://localhost:8080", "127.0.0.1:0", "127.0.0.1:65536", "localhost:nope", "ws://user:password@host", "bad host:8080", "host:8080#fragment"]:
+  check(Network.parse_server_address(bad).is_empty(), "Invalid server address rejected: " + bad)
  var pause: Control = load("res://scenes/ui/pause_menu_ui.tscn").instantiate()
  add_child(pause)
  var events := []
@@ -26,10 +20,10 @@ func _ready() -> void:
  pause.main_menu_pressed.connect(func(): events.append("menu"))
  pause.show_menu()
  pause._on_resume_pressed()
- check(events == ["resume"], "Resume sends the signal consumed by the level")
+ check(events == ["resume"], "Resume signals the level")
  pause.hide_menu()
- check(not pause.visible, "Resume can hide the actual pause menu")
+ check(not pause.visible, "Pause menu actually hides")
  pause._on_main_menu_pressed()
- check(events == ["resume", "menu"], "Main Menu sends the leave-session signal")
- print("[Web protocol/menu test] failed=", failed)
+ check(events == ["resume", "menu"], "Main Menu signals the level")
+ print("[Address/menu test] failed=", failed)
  get_tree().quit(1 if failed else 0)

@@ -41,6 +41,8 @@ func _ready():
 		main_menu.host_pressed.connect(_on_host_pressed)
 		main_menu.join_pressed.connect(_on_join_pressed)
 		main_menu.quit_pressed.connect(_on_quit_pressed)
+		main_menu.cancel_requested.connect(_on_cancel_connection)
+	Network.connection_status_changed.connect(_on_connection_status_changed)
 
 	if is_instance_valid(pause_menu):
 		pause_menu.resume_pressed.connect(_on_pause_resume_pressed)
@@ -82,8 +84,6 @@ func _on_server_disconnected():
 
 
 func _reset_session_ui() -> void:
-	var lobby := get_node_or_null("WebLobbyUI")
-	if lobby: lobby.hide_panel()
 	for child in players_container.get_children():
 		child.queue_free()
 
@@ -105,10 +105,14 @@ func _reset_session_ui() -> void:
 		inventory_ui.current_player = null
 	_hide_pause_menu(false)
 	main_menu.show_menu()
+	main_menu.set_connecting(false)
 	_update_mouse_mode()
 
 
 func _on_player_connected(peer_id, player_info):
+	if multiplayer.has_multiplayer_peer() and peer_id == multiplayer.get_unique_id():
+		main_menu.hide_menu()
+		_update_mouse_mode()
 	var player = _add_player(peer_id, player_info)
 	if multiplayer.is_server() and player:
 		player.call_deferred("_sync_inventory_to_owner")
@@ -121,16 +125,14 @@ func _on_player_connected(peer_id, player_info):
 	_refresh_player_list()
 
 
-func _on_host_pressed(nickname: String, skin: String):
-	var error = Network.start_host(nickname, skin)
+func _on_host_pressed(nickname: String, skin: String, address: String = ""):
+	var error = Network.start_host(nickname, skin, address)
 	if error:
 		push_warning("Failed to host game. Error: " + str(error))
 		main_menu.show_menu()
 		_update_mouse_mode()
 		return
-	main_menu.hide_menu()
-	if OS.has_feature("web"):
-		get_node("WebLobbyUI").show_panel()
+	if not Network.is_connecting(): main_menu.hide_menu()
 	_update_mouse_mode()
 
 
@@ -138,14 +140,10 @@ func _on_join_pressed(nickname: String, skin: String, address: String):
 	var error = Network.join_game(nickname, skin, address)
 	if error:
 		push_warning("Failed to join game. Error: " + str(error))
-		if OS.has_feature("web") and Network.web_lobby:
-			main_menu.set_connection_status(Network.web_lobby.status)
 		main_menu.show_menu()
 		_update_mouse_mode()
 		return
-	main_menu.hide_menu()
-	if OS.has_feature("web"):
-		get_node("WebLobbyUI").show_panel()
+	if not Network.is_connecting(): main_menu.hide_menu()
 	_update_mouse_mode()
 
 
@@ -380,8 +378,6 @@ func _on_inventory_closed():
 
 
 func is_gameplay_input_blocked() -> bool:
-	var lobby := get_node_or_null("WebLobbyUI")
-	if lobby and lobby.is_open: return true
 	return pause_menu.is_menu_visible() or inventory_visible or multiplayer_chat.is_chat_visible()
 
 
@@ -390,10 +386,6 @@ func is_camera_input_blocked() -> bool:
 
 
 func _handle_pause_action() -> void:
-	var lobby := get_node_or_null("WebLobbyUI")
-	if lobby and lobby.is_open:
-		lobby.hide_panel()
-		return
 	if inventory_visible:
 		_close_inventory()
 		return
@@ -507,3 +499,14 @@ func _practice_start() -> void:
 	_on_host_pressed("Player", "blue")
 	await get_tree().create_timer(1.0).timeout
 	Shooter.host_start()
+
+
+func _on_connection_status_changed(message: String) -> void:
+	main_menu.set_connection_status(message)
+	main_menu.set_connecting(Network.is_connecting())
+
+
+func _on_cancel_connection() -> void:
+	Network.leave_game()
+	main_menu.set_connecting(false)
+	main_menu.set_connection_status("Connection cancelled.")

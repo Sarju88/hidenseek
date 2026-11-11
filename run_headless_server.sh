@@ -46,7 +46,7 @@ main() {
 
 	echo "Starting Dedicated Server (Headless Mode) with: $godot_bin"
 
-	"$godot_bin" --headless --path "$project_dir" &
+	"$godot_bin" --headless --path "$project_dir" -- "$@" &
 	local server_pid=$!
 	local stopping=false
 

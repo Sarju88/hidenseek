@@ -59,7 +59,7 @@ func _refresh_members() -> void:
   var ids := Network.players.keys()
   ids.sort()
   var next_roles := {}
-  var seeker_id: int = int(ids[0]) if not ids.is_empty() else 0
+  var seeker_id: int = Network.session_host_id if ids.has(Network.session_host_id) else (int(ids[0]) if not ids.is_empty() else 0)
   for id in ids:
    if roles.get(id, HIDER) == SEEKER:
     seeker_id = int(id)

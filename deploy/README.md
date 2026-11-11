@@ -20,37 +20,58 @@ The release uses WebGL 2 and does not require SharedArrayBuffer or special HTTP
 headers. The editor-only MCP autoload and prototype scenes are excluded. Asset
 references use source images, so exports do not depend on a developer's cache.
 
-## Limits
+## Multiplayer server
 
-The static web release supports direct browser-to-browser WebRTC multiplayer.
-Host and Join exchange an invite and a reply manually; the host's browser is the
-authoritative game server. Public STUN servers discover routes. Restricted NATs
-may require a TURN relay; none is configured. The host must keep the game tab
-open and active. Automatic short room codes would need a signaling service;
-GitHub Pages does not run such a service. Desktop ENet sessions are separate.
+Desktop and browser clients use the same Godot WebSocket multiplayer protocol.
+The menu takes a server address such as `127.0.0.1:8080`; no signaling codes or
+pairing panels are used. Desktop Host listens on that port. Browser Host
+requests a new game on the running server, and Join connects to it.
 
-For local browser integration tests:
+Start the game server from source:
 
 ```sh
+./run_headless_server.sh --port=8080
+```
+
+Or build the desktop/server executable, then run it headlessly:
+
+```sh
+python3 scripts/deploy/build_web.py --platform Linux
+exports/linux/HideSeek.x86_64 --headless -- --port=8080
+```
+
+Docker uses that freshly exported executable and TCP port 8080:
+
+```sh
+docker build -t hidenseek-server .
+docker run --rm -p 8080:8080 hidenseek-server
+```
+
+`127.0.0.1` is only the current computer. For remote players, expose this server
+through a public WSS endpoint and enter that hostname/address in the menu.
+GitHub Pages hosts static files only; it cannot listen for game connections.
+Do not disable certificate verification. TLS is terminated by a secure reverse
+proxy, with WebSocket upgrades forwarded to the Godot TCP listener.
+
+## Verification
+
+```sh
+godot --headless --path . res://tests/web_menu_test.tscn
 python3 scripts/deploy/build_web.py --browser-test --output exports/web-test
 python3 -m http.server 8765 --directory exports/web-test
 ```
 
-This fixture exposes commands for two controlled browser instances to exchange
-codes and inspect replicated state. It is excluded from production builds.
-Normal export deliberately removes the fixture from a reused staging cache.
-
-With two Paradev browser panes available, run the complete browser test using
-those pane IDs and the workspace ID:
+With a separate game server on port 18580 and two Paradev browser panes:
 
 ```sh
-python3 tests/run_web_browser_test.py --workspace WORKSPACE_ID --host-pane HOST_PANE --guest-pane GUEST_PANE
+godot --headless --path . -- --port=18580 --bind=127.0.0.1
+python3 tests/run_web_browser_test.py --workspace WORKSPACE_ID --host-pane HOST_PANE --guest-pane GUEST_PANE --server 127.0.0.1:18580
 ```
 
-The test exchanges real WebRTC invites/replies, checks replicated movement,
-remote hiding and discovery, menu controls, and disconnect cleanup. Inactive
-embedded panes throttle RAF, so the fixture explicitly polls Godot networking
-and timers while the test controls both peers.
+The fixture verifies real address-based connections, replicated movement, remote
+hiding/discovery, menus and disconnect cleanup. Inactive embedded panes throttle
+RAF, so the fixture explicitly polls Godot networking/timers while controlling
+both clients. It is excluded from production exports.
 
 ## Cloudflare custom domain
 
