@@ -5,6 +5,8 @@ signal server_disconnected
 
 const SERVER_ADDRESS: String = "127.0.0.1"
 const SERVER_PORT: int = 8080
+# Tests and dedicated deployments can select an isolated port before connecting.
+var server_port: int = SERVER_PORT
 const MAX_PLAYERS: int = 10
 const MAX_NICK_LENGTH := 24
 const MAX_ADDRESS_LENGTH := 253
@@ -12,6 +14,10 @@ const MAX_ADDRESS_LENGTH := 253
 var players = {}
 var player_info = {"nick": "host", "skin": Character.SkinColor.BLUE}
 var _session_active := false
+
+# Game mode settings (used by main menu and shooter scripts)
+@export var shooter_mode: int = 0  # 0=team deathmatch, 1=free for all, 2=capture the flag
+@export var practice_bots: int = 3  # Number of AI bots in practice mode
 
 
 func _ready() -> void:
@@ -23,13 +29,16 @@ func _ready() -> void:
 
 
 func start_host(nickname: String, skin_color_str: String):
-	var peer = ENetMultiplayerPeer.new()
-	var error = peer.create_server(SERVER_PORT, MAX_PLAYERS)
-	if error:
-		return error
-
-	peer.host.compress(ENetConnection.COMPRESS_RANGE_CODER)
-	multiplayer.multiplayer_peer = peer
+	if OS.has_feature("web"):
+		# Static web hosting supports solo play without a native UDP listener.
+		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	else:
+		var peer = ENetMultiplayerPeer.new()
+		var error = peer.create_server(server_port, MAX_PLAYERS)
+		if error:
+			return error
+		peer.host.compress(ENetConnection.COMPRESS_RANGE_CODER)
+		multiplayer.multiplayer_peer = peer
 	_session_active = true
 
 	player_info["nick"] = sanitize_nickname(nickname, "Host_" + str(multiplayer.get_unique_id()))
@@ -43,12 +52,14 @@ func start_host(nickname: String, skin_color_str: String):
 
 
 func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS):
+	if OS.has_feature("web"):
+		return ERR_UNAVAILABLE
 	address = sanitize_address(address)
 	if address.is_empty():
 		return ERR_INVALID_PARAMETER
 
 	var peer = ENetMultiplayerPeer.new()
-	var error = peer.create_client(address, SERVER_PORT)
+	var error = peer.create_client(address, server_port)
 	if error:
 		return error
 
@@ -142,6 +153,61 @@ func _sync_registered_player(peer_id: int, registered_player_info: Dictionary):
 	var sanitized_info = sanitize_player_info(registered_player_info, "Player_" + str(peer_id))
 	players[peer_id] = sanitized_info
 	player_connected.emit(peer_id, sanitized_info)
+
+
+# Broadcast minimap updates at a fixed rate independent of rendering.
+const MINIMAP_UPDATE_INTERVAL := 0.1
+var _minimap_update_elapsed := 0.0
+
+
+func _process(delta: float) -> void:
+	if not _session_active or not multiplayer.is_server() or players.is_empty():
+		_minimap_update_elapsed = 0.0
+		return
+	_minimap_update_elapsed += delta
+	if _minimap_update_elapsed >= MINIMAP_UPDATE_INTERVAL:
+		_minimap_update_elapsed = 0.0
+		broadcast_player_positions()
+
+
+func broadcast_player_positions() -> void:
+	var positions := {}
+	var container := get_tree().get_first_node_in_group("Players")
+	if container:
+		for child in container.get_children():
+			if child is Character:
+				positions[child.get_multiplayer_authority()] = child.global_position
+
+	_broadcast_positions(positions)
+	for peer_id in multiplayer.get_peers():
+		if players.has(peer_id):
+			_broadcast_positions.rpc_id(peer_id, positions)
+
+
+@rpc("authority", "unreliable")
+func _broadcast_positions(positions: Dictionary) -> void:
+
+	# Update minimap controller if available (hiders only)
+	var minimap := get_tree().get_first_node_in_group("MinimapController") as PanelContainer
+	if minimap:
+		minimap.update_all_positions(positions)
+
+
+@rpc("any_peer", "reliable")
+func on_seeker_detected_hider(hider_player: CharacterBody3D):
+	"""RPC called when seeker detects a hider."""
+	var gm := get_tree().get_first_node_in_group("game_manager")
+	if gm and multiplayer.is_server() and gm.has_method("mark_as_found"):
+		gm.mark_as_found(hider_player)
+		print("[Network] Hider found at %.2f, %.2f" % [hider_player.global_position.x, hider_player.global_position.z])
+
+
+# Find player by peer_id for use in RPCs
+func _find_player_by_peer_id(peer_id: int) -> CharacterBody3D:
+	for player in get_tree().get_root().get_children():
+		if player is CharacterBody3D and player.has_node_or_null("peer_id") != null and player.get_node_or_null("peer_id").get_int() == peer_id:
+			return player
+	return null
 
 
 func sanitize_player_info(info: Dictionary, fallback_nick: String) -> Dictionary:

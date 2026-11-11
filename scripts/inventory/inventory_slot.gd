@@ -3,6 +3,7 @@ extends RefCounted
 
 var item_id: String = ""
 var quantity: int = 0
+var weapon_state: Dictionary = {}
 
 
 func is_empty() -> bool:
@@ -32,15 +33,17 @@ func remove_item(amount: int = 1) -> int:
 
 
 func clear() -> void:
+	weapon_state = {}
 	item_id = ""
 	quantity = 0
 
 
 func to_dict() -> Dictionary:
-	return {"item_id": item_id, "quantity": quantity}
+	return {"item_id": item_id, "quantity": quantity, "weapon_state":weapon_state}
 
 
 func from_dict(data: Dictionary) -> void:
+	weapon_state = data.get("weapon_state", {})
 	item_id = data.get("item_id", "")
 	quantity = data.get("quantity", 0)
 

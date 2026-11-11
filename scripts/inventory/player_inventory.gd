@@ -191,6 +191,10 @@ func move_item(from_index: int, to_index: int, quantity: int = -1) -> bool:
 	if not item:
 		return false
 
+	if not item.stackable and to_slot.is_empty():
+		to_slot.from_dict(from_slot.to_dict())
+		from_slot.clear()
+		return true
 	var remaining = to_slot.add_item(item, move_amount)
 	var moved_amount = move_amount - remaining
 	if moved_amount > 0:
@@ -225,14 +229,9 @@ func swap_items(from_index: int, to_index: int) -> bool:
 				from_slot.clear()
 			return true
 
-	var temp_item_id = from_slot.item_id
-	var temp_quantity = from_slot.quantity
-
-	from_slot.item_id = to_slot.item_id
-	from_slot.quantity = to_slot.quantity
-
-	to_slot.item_id = temp_item_id
-	to_slot.quantity = temp_quantity
+	var previous = from_slot.to_dict()
+	from_slot.from_dict(to_slot.to_dict())
+	to_slot.from_dict(previous)
 
 	return true
 

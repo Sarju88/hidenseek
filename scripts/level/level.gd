@@ -14,35 +14,43 @@ var _player_nickname_heights: Dictionary = {}
 var _nickname_heights_requested := false
 var _nickname_height_requesters: Dictionary = {}
 
-@onready var players_container: Node3D = $PlayersContainer
-@onready var main_menu: MainMenuUI = $MainMenuUI
-@onready var multiplayer_chat: MultiplayerChatUI = $MultiplayerChatUI
-@onready var inventory_ui: InventoryUI = $InventoryUI
-@onready var player_list_ui: PlayerListUI = $PlayerListUI
-@onready var pause_menu: PauseMenuUI = $PauseMenuUI
+@onready var players_container: Node3D = $PlayersContainer if has_node("PlayersContainer") else null
+@onready var main_menu: MainMenuUI = get_node_or_null("MainMenuUI") as MainMenuUI if has_node("MainMenuUI") else null
+@onready var multiplayer_chat: MultiplayerChatUI = get_node_or_null("MultiplayerChatUI") as MultiplayerChatUI if has_node("MultiplayerChatUI") else null
+@onready var inventory_ui: InventoryUI = get_node_or_null("InventoryUI") as InventoryUI if has_node("InventoryUI") else null
+@onready var player_list_ui: PlayerListUI = get_node_or_null("PlayerListUI") as PlayerListUI if has_node("PlayerListUI") else null
+@onready var pause_menu: PauseMenuUI = get_node_or_null("PauseMenuUI") as PauseMenuUI if has_node("PauseMenuUI") else null
 
 
 func _ready():
 	after_ready()
+	if "--practice" in OS.get_cmdline_user_args() and DisplayServer.get_name()!="headless":
+		call_deferred("_practice_start")
 
 	if DisplayServer.get_name() == "headless":
-		Network.start_host("", "")
+		var join_address := ""
+		for argument in OS.get_cmdline_user_args():
+			if argument.begins_with("--join="):join_address=argument.trim_prefix("--join=")
+		if join_address.is_empty():Network.start_host("", "")
+		else:Network.join_game("Test client", "blue", join_address)
 
-	pause_menu.hide_menu()
-	main_menu.show_menu()
-	multiplayer_chat.set_process_input(true)
+	if DisplayServer.get_name() != "headless":
+		main_menu.show_menu()
 
-	main_menu.host_pressed.connect(_on_host_pressed)
-	main_menu.join_pressed.connect(_on_join_pressed)
-	main_menu.quit_pressed.connect(_on_quit_pressed)
-	pause_menu.resume_pressed.connect(_on_pause_resume_pressed)
-	pause_menu.main_menu_pressed.connect(_on_pause_main_menu_pressed)
-	pause_menu.quit_pressed.connect(_on_pause_quit_pressed)
+	if is_instance_valid(main_menu):
+		main_menu.host_pressed.connect(_on_host_pressed)
+		main_menu.join_pressed.connect(_on_join_pressed)
+		main_menu.quit_pressed.connect(_on_quit_pressed)
 
-	if inventory_ui:
+	if is_instance_valid(pause_menu):
+		pause_menu.resume_pressed.connect(_on_pause_resume_pressed)
+		pause_menu.main_menu_pressed.connect(_on_pause_main_menu_pressed)
+		pause_menu.quit_pressed.connect(_on_pause_quit_pressed)
+
+	if is_instance_valid(inventory_ui):
 		inventory_ui.inventory_closed.connect(_on_inventory_closed)
 
-	if multiplayer_chat:
+	if is_instance_valid(multiplayer_chat):
 		multiplayer_chat.message_sent.connect(_on_chat_message_sent)
 
 	Network.server_disconnected.connect(_on_server_disconnected)
@@ -52,14 +60,7 @@ func _ready():
 
 
 func _process(_delta: float) -> void:
-	var can_show_player_list := (
-		not main_menu.is_menu_visible() and not pause_menu.is_menu_visible() and multiplayer.has_multiplayer_peer()
-	)
-	if Input.is_key_pressed(KEY_TAB) and can_show_player_list:
-		if not player_list_visible:
-			_show_player_list()
-	elif player_list_visible:
-		_hide_player_list()
+	pass
 
 
 func after_ready():
@@ -73,7 +74,7 @@ func after_ready():
 	elif OS.has_feature("OSX"):
 		if OS.has_environment("HOSTNAME"):
 			ip_address = IP.resolve_hostname(str(OS.get_environment("HOSTNAME")), IP.TYPE_IPV4)
-	main_menu.address_input.text = ip_address
+	if not OS.has_feature("web") and not ip_address.is_empty():main_menu.address_input.text = ip_address
 
 
 func _on_server_disconnected():
@@ -150,6 +151,7 @@ func _add_player(id: int, player_info: Dictionary) -> Character:
 	var player = player_scene.instantiate()
 	player.name = str(id)
 	player.position = get_spawn_point(id)
+	player._spawn_point = player.position
 	players_container.add_child(player, true)
 
 	var nick = Network.sanitize_nickname(str(player_info.get("nick", "")), "Player_" + str(id))
@@ -162,9 +164,10 @@ func _add_player(id: int, player_info: Dictionary) -> Character:
 
 
 func get_spawn_point(id: int) -> Vector3:
-	var spawn_angle := fmod(float(id) * 2.399963229728653, 2.0 * PI)
-	var spawn_point := Vector2.from_angle(spawn_angle) * 10
-	return Vector3(spawn_point.x, 0, spawn_point.y)
+	var office := get_node_or_null("Environment/Arena")
+	if office and office.has_method("get_lobby_spawn"):
+		return office.get_lobby_spawn(id)
+	return Vector3(0, 0.15, 17)
 
 
 func _remove_player(id):
@@ -369,7 +372,7 @@ func _on_inventory_closed():
 
 
 func is_gameplay_input_blocked() -> bool:
-	return pause_menu.is_menu_visible()
+	return pause_menu.is_menu_visible() or inventory_visible or multiplayer_chat.is_chat_visible()
 
 
 func is_camera_input_blocked() -> bool:
@@ -419,11 +422,8 @@ func _close_inventory() -> void:
 func _update_mouse_mode() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
-	var ui_requires_cursor := (
-		main_menu.is_menu_visible()
-		or pause_menu.is_menu_visible()
-		or inventory_visible
-		or not multiplayer.has_multiplayer_peer()
+	var ui_requires_cursor := bool(
+		main_menu.is_menu_visible() or pause_menu.is_menu_visible() or inventory_visible or not multiplayer.has_multiplayer_peer()
 	)
 	if ui_requires_cursor:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -437,6 +437,10 @@ func _on_pause_resume_pressed() -> void:
 
 func _on_pause_main_menu_pressed() -> void:
 	_hide_pause_menu(false)
+	_on_pause_main_menu_requested()
+
+
+func _on_pause_main_menu_requested():
 	Network.leave_game()
 	if not main_menu.is_menu_visible():
 		_reset_session_ui()
@@ -485,3 +489,8 @@ func _debug_print_inventory():
 		print("=====================")
 	else:
 		print("No inventory found for local player")
+
+func _practice_start() -> void:
+	_on_host_pressed("Player", "blue")
+	await get_tree().create_timer(1.0).timeout
+	Shooter.host_start()

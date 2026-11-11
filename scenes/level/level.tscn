@@ -2,12 +2,16 @@
 
 [ext_resource type="Script" uid="uid://d0dgljwwl463n" path="res://scripts/level/level.gd" id="1_e1sh7"]
 [ext_resource type="PackedScene" uid="uid://cffjduipbb3s5" path="res://scenes/level/player.tscn" id="1_uvcbi"]
-[ext_resource type="PackedScene" path="res://scenes/level/arena.tscn" id="2_arena"]
+[ext_resource type="PackedScene" path="res://scenes/level/shooter_arena.tscn" id="2_arena"]
 [ext_resource type="PackedScene" uid="uid://bclq8vh1x2goy" path="res://scenes/ui/inventory_ui.tscn" id="4_x8g2h"]
 [ext_resource type="PackedScene" uid="uid://ccencq0lcd3ph" path="res://scenes/ui/multiplayer_chat_ui.tscn" id="5_x9g3h"]
 [ext_resource type="PackedScene" uid="uid://bx7mq8t8hjn7q" path="res://scenes/ui/main_menu_ui.tscn" id="6_x9g3h"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu_ui.tscn" id="8_pause"]
 [ext_resource type="PackedScene" path="res://scenes/ui/player_list_ui.tscn" id="9_player_list"]
+
+[ext_resource type="Script" path="res://scripts/hiding/hiding_system.gd" id="10_hiding"]
+
+[ext_resource type="Script" path="res://scripts/audio/game_audio.gd" id="11_audio"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_main"]
 sky_top_color = Color(0.22, 0.46, 0.72, 1)
@@ -26,6 +30,8 @@ sky_material = SubResource("ProceduralSkyMaterial_main")
 background_mode = 2
 sky = SubResource("Sky_main")
 ambient_light_source = 3
+ambient_light_color = Color(0.78, 0.85, 0.91, 1)
+ambient_light_energy = 0.6
 reflected_light_source = 2
 tonemap_mode = 2
 ssao_enabled = true
@@ -33,7 +39,7 @@ ssao_radius = 0.7
 ssao_intensity = 0.85
 ssao_power = 1.1
 ssao_detail = 0.35
-fog_enabled = true
+fog_enabled = false
 fog_light_color = Color(0.66, 0.76, 0.84, 1)
 fog_light_energy = 0.8
 fog_sun_scatter = 0.08
@@ -52,7 +58,6 @@ spawn_path = NodePath("../Environment/ItemContainer")
 
 [node name="Environment" type="Node3D" parent="." unique_id=523076069]
 unique_name_in_owner = true
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2542782, 0)
 
 [node name="Arena" parent="Environment" unique_id=318485284 instance=ExtResource("2_arena")]
 
@@ -69,7 +74,6 @@ shadow_blur = 0.5
 [node name="ItemContainer" type="Node3D" parent="Environment" unique_id=1445003613]
 
 [node name="PlayersContainer" type="Node3D" parent="." unique_id=1732952398 groups=["Players"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6891646, 0)
 
 [node name="MainMenuUI" parent="." unique_id=2006763256 instance=ExtResource("6_x9g3h")]
 visible = false
@@ -86,3 +90,9 @@ visible = false
 
 [node name="PauseMenuUI" parent="." unique_id=358154633 instance=ExtResource("8_pause")]
 visible = false
+
+[node name="HidingSystem" type="Node" parent="."]
+script = ExtResource("10_hiding")
+
+[node name="GameAudio" type="Node3D" parent="."]
+script = ExtResource("11_audio")

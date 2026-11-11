@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid-skybox-scene"]
+
+[node name="Sky" type="Sky"]
+sky_type = 1
+sky_solar_azimuth = 90.0
+sky_solar_elevation = 45.0
+sky_sun_size = 0.5
+sky_sun_color = Color(1, 0.9, 0.7)
+sky_horizon_color_bottom = Color(0.6, 0.8, 1.0)
+sky_horizon_color_top = Color(0.4, 0.6, 0.9)
+sky_ground_albedo = Color(0.2, 0.3, 0.5)

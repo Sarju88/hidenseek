@@ -1,0 +1,22 @@
+[gd_scene format=2 uid="uid-main-level-office-building"]
+
+[ext_resource type="Script" path="res://scripts/autoload/game_manager.gd" id="1_game"]
+[ext_resource type="PackedScene" path="res://scenes/level/player.tscn" id="2_player"]
+
+[node name="MainLevel" type="Node3D"]
+script = ExtResource("1_game")
+
+[node name="BuildingGenerator" type="Node3D" parent="."]
+
+[node name="PlayersContainer" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="SunLight" type="DirectionalLight3D" parent="."]
+direction = Vector3(-1, -0.5, -1).normalized()
+shadow_enabled = true
+cast_shadows = true
+light_color = Color(0.92, 0.94, 0.88)
+light_energy = 1.1
+
+[node name="UIRoot" type="CanvasLayer" parent="."]

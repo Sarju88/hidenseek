@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://ba1qwcj3pm5ou"
+path="res://.godot/imported/rocks-ramp.obj-e350a7b579d68f5e184e289ce312b92b.mesh"
+
+[deps]
+
+files=["res://.godot/imported/rocks-ramp.obj-e350a7b579d68f5e184e289ce312b92b.mesh"]
+
+source_file="res://assets/models/OBJ format/rocks-ramp.obj"
+dest_files=["res://.godot/imported/rocks-ramp.obj-e350a7b579d68f5e184e289ce312b92b.mesh", "res://.godot/imported/rocks-ramp.obj-e350a7b579d68f5e184e289ce312b92b.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

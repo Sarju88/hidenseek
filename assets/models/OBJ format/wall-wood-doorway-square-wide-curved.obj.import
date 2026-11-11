@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://3v5ee6jynnhv"
+path="res://.godot/imported/wall-wood-doorway-square-wide-curved.obj-79a42223c8bbac75df6eb63d8c75ba4b.mesh"
+
+[deps]
+
+files=["res://.godot/imported/wall-wood-doorway-square-wide-curved.obj-79a42223c8bbac75df6eb63d8c75ba4b.mesh"]
+
+source_file="res://assets/models/OBJ format/wall-wood-doorway-square-wide-curved.obj"
+dest_files=["res://.godot/imported/wall-wood-doorway-square-wide-curved.obj-79a42223c8bbac75df6eb63d8c75ba4b.mesh", "res://.godot/imported/wall-wood-doorway-square-wide-curved.obj-79a42223c8bbac75df6eb63d8c75ba4b.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

@@ -1,0 +1,73 @@
+[gd_scene format=3 uid="uid://main-level-procedural"]
+
+[ext_resource type="Script" path="res://scripts/autoload/game_manager.gd" id="1_game"]
+[ext_resource type="PackedScene" path="res://scenes/level/player.tscn" id="2_player"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.6, 0.85, 1.0, 1)
+sky_horizon_color = Color(0.9, 1.0, 1.0, 1)
+ground_bottom_color = Color(0.2, 0.3, 0.4, 1)
+ground_horizon_color = Color(0.7, 0.85, 0.95, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+reflected_light_source = 2
+tonemap_mode = 2
+ssao_enabled = true
+ssao_intensity = 0.7
+fog_enabled = true
+fog_density = 0.0015
+fog_aerial_perspective = 0.4
+
+[node name="MainLevel" type="Node3D"]
+script: MainLevel
+
+# Arena Generator - creates procedural multi-level arena on load
+[node name="ArenaGenerator" type="Node3D" parent="."]
+
+# Player spawn container
+[node name="PlayersContainer" type="Node3D" parent="." groups=["Players"]]
+
+# World Environment for lighting/atmosphere
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+# Directional Light (sun)
+[node name="SunLight" type="DirectionalLight3D" parent="."]
+direction = Vector3(-1, -0.5, -1).normalized()
+light_color = Color(1, 0.92, 0.78, 1)
+light_energy = 1.2
+shadow_enabled = true
+
+# Item spawn container (for future power-ups)
+[node name="ItemContainer" type="Node3D" parent="."]
+
+# UI Containers
+[node name="UIRoot" type="CanvasLayer" parent="." groups=["UI"]]
+
+[node name="MainMenuUI" type="Control" parent="UIRoot"]
+anchors_preset = 15
+grow_horizontal = 2
+layout_mode = 2
+size_flags_vertical = 3
+visible = true
+
+[node name="MultiplayerChatUI" type="Control" parent="UIRoot"]
+anchors_preset = 14
+layout_mode = 2
+size_flags_horizontal = 3
+visible = false
+
+[node name="PlayerListUI" type="Control" parent="UIRoot"]
+anchors_preset = 10
+grow_vertical = 2
+visible = false
+
+# Radar pulse visual container (for seeker)
+[node name="RadarPulseVisuals" type="CanvasLayer" parent="."]
+visible = false

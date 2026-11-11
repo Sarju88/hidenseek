@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3 uid="uid-stairs-scene"]
+
+[sub_resource type="StandardMaterial3D" id="1_stair_mat"]
+albedo_color = Color(0.7, 0.65, 0.55)
+
+[node name="StairsFeature" type="Node3D"]
+script = Extends("res://scripts/terrain/stairs_ladder_interactor.gd")
+
+[node name="Area3D" parent="."]
+collision_layer = 2
+collision_mask = 1
+
+[node name="SphereShape3D" parent="Area3D" type="SphereShape3D"]
+radius = 1.5
+
+[node name="MeshInstance3D" parent="." group="visuals"]
+material_override = SubResource("1_stair_mat")
+
+[node name="CylinderMesh" parent="MeshInstance3D" type="CylinderMesh"]
+height = 4.0
+radius = 1.2

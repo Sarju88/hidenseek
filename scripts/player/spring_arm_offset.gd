@@ -10,9 +10,9 @@ const MOUSE_SENSIBILITY: float = 0.005
 @export var _first_person_anchor: Node3D = null
 
 @export_category("Camera Perspective")
-@export_range(0.0, 10.0, 0.05) var third_person_distance := 5.0
+@export_range(0.0, 10.0, 0.05) var third_person_distance := 3.2
 @export_range(0.0, 1.0, 0.05) var first_person_distance := 0.0
-@export_range(0.0, 3.0, 0.05) var third_person_height := 2.0
+@export_range(0.0, 3.0, 0.05) var third_person_height := 1.65
 @export_range(1.0, 179.0, 1.0) var third_person_fov := 75.0
 @export_range(1.0, 179.0, 1.0) var first_person_fov := 90.0
 
@@ -25,9 +25,16 @@ var _pitch := 0.0
 
 func _ready() -> void:
 	_yaw = rotation.y
-	_pitch = _spring_arm.rotation.x if _spring_arm else 0.0
+	_pitch = -0.16
 	_apply_axis_lock()
 	_apply_perspective()
+	if _spring_arm:
+		# Camera collides with the building and furniture, excluding its owner.
+		_spring_arm.collision_mask = 2
+		var probe := SphereShape3D.new()
+		probe.radius = 0.18
+		_spring_arm.shape = probe
+		_spring_arm.margin = 0.08
 
 
 func _process(_delta: float) -> void:
@@ -45,12 +52,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if current_scene.is_camera_input_blocked():
 			return
 
-	if event.is_action_pressed("toggle_camera"):
-		is_first_person = not is_first_person
-		_apply_perspective()
-		perspective_changed.emit(is_first_person)
-		get_viewport().set_input_as_handled()
-		return
 
 	if not (event is InputEventMouseMotion):
 		return
@@ -58,7 +59,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	_yaw = wrapf(_yaw - event.relative.x * MOUSE_SENSIBILITY, -PI, PI)
-	_pitch = clampf(_pitch - event.relative.y * MOUSE_SENSIBILITY, -PI / 4.0, PI / 24.0)
+	_pitch = clampf(_pitch - event.relative.y * MOUSE_SENSIBILITY, -PI / 2.1, PI / 2.1)
 	_apply_axis_lock()
 
 
@@ -81,6 +82,6 @@ func _apply_perspective() -> void:
 			_camera.fov = first_person_fov
 	else:
 		_spring_arm.spring_length = third_person_distance
-		_spring_arm.position = Vector3(0.0, third_person_height, 0.0)
+		_spring_arm.position = Vector3(0.45, third_person_height, 0.0)
 		if _camera:
 			_camera.fov = third_person_fov

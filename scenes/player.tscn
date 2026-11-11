@@ -1,0 +1,64 @@
+[gd_scene load_steps=4 format=3 uid="uid-player-scene"]
+
+[sub_resource type="StandardMaterial3D" id="1m_player_mat"]
+albedo_color = #FFFFFF
+transparency = TransparencyMethod.ADDITIVE
+
+[node name="Player" type="CharacterBody3D"]
+collision_shape_3d/margin = 0.5
+collision_shape_3d/shape_scale = Vector3(1, 1, 1)
+speed = 6.0
+sprint_multiplier = 1.5
+gravity = -25.0
+jump_velocity = 8.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform: Transform(0.942478, 0.342020, -0.612323, 0.0, 5.0, 0.0)
+
+[node name="CapsuleShape3D" type="CapsuleShape3D" parent="CollisionShape3D"]
+radius = 0.5
+height = 2.0
+
+# Third-person camera container - positioned behind and slightly above player
+[node name="CameraContainer" type="Node3D" parent="."]
+position = Vector3(0, orbit_height_offset, -orbit_radius)
+
+[node name="SpringArmOffset" type="Camera3D" parent="CameraContainer"]
+transform: Transform(1, 0, 0, 0, 0.2, -0.3, -1, 0, 1, 0, 0, 0)
+
+# Main camera node (third-person view orbiting around character)
+[node name="Camera3D" type="Camera3D" parent="SpringArmOffset"]
+fov = 75
+projection_mode = 2
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform: Transform(1, 0, 0, 0, 0.5, 0, -1, 0, 1, 0, 0, 0)
+
+[node name="SphereMesh" type="SphereMesh" parent="MeshInstance3D"]
+radius = 0.6
+
+[node name="PlayerVisuals" type="Node3D" parent="."]
+transform: Transform(1, 0, 0, 0, 0.5, 0, -1, 0, 1, 0, 0, 0)
+
+[node name="DetectionRing" type="Node3D" parent="."]
+transform: Transform(1, 0, 0, 0, 0.5, 0, -1, 0, 1, 0, 0, 0)
+
+[node name="NoiseEmitter" type="Node3D" parent="."]
+transform: Transform(1, 0, 0, 0, 0.5, 0, -1, 0, 1, 0, 0, 0)
+
+[sub_resource type="StandardMaterial3D" id="2m_ring_mat"]
+albedo_color = #FF0000
+transparency = TransparencyMethod.ADDITIVE
+
+[node name="Ring" type="Line3D" parent="DetectionRing"]
+line_width = 0.3
+
+[sub_resource type="StandardMaterial3D" id="2m_noise_mat"]
+albedo_color = #FFFF00
+transparency = TransparencyMethod.ADDITIVE
+
+[node name="NoiseRing" type="Line3D" parent="NoiseEmitter"]
+line_width = 0.15
+
+# Player Controller - handles WASD movement, jumping, and camera rotation input
+[node name="PlayerController" type="Node" parent="."]

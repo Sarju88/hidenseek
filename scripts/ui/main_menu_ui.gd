@@ -15,6 +15,11 @@ const SAFE_AREA_MARGIN := 24.0
 
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		$MainContainer/MainMenu/Buttons/Host.text = "PLAY"
+		$MainContainer/MainMenu/Buttons/Join.hide()
+		$MainContainer/MainMenu/Option3.hide()
+		$MainContainer/MainMenu/Option4.hide()
 	skin_input.clear()
 	for skin_name in SKIN_OPTIONS:
 		skin_input.add_item(skin_name)

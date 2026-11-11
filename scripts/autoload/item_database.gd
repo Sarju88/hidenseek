@@ -19,6 +19,17 @@ var items: Dictionary = {}
 
 func _ready():
 	_create_sample_items()
+	for gun_id in BlasterWeapons.IDS:
+		var gun := Item.new()
+		gun.id = gun_id
+		gun.name = gun_id.capitalize() + " Blaster"
+		gun.description = "R reload · Right mouse aim · 1–9 hotbar"
+		gun.item_type = Item.ItemType.WEAPON
+		gun.stackable = false
+		gun.max_stack = 1
+		gun.context_options.append(Item.ContextOptions.DROP)
+		gun.icon = BlasterWeapons.create_icon(gun_id)
+		items[gun_id] = gun
 
 
 func get_item(item_id: String) -> Item:

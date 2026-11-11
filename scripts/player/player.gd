@@ -53,6 +53,11 @@ const FIRST_PERSON_HIDDEN_BONES: Array[StringName] = [&"Head", &"HeadTop"]
 @export var green_texture: CompressedTexture2D
 @export var red_texture: CompressedTexture2D
 
+var hidden_spot_id := ""
+var hiding_busy := false
+var _hiding_anchor := Vector3.ZERO
+var _normal_collision_layer := 1
+var _normal_collision_mask := 7
 var player_inventory: PlayerInventory
 var gravity = ProjectSettings.get_setting("physics/3d/default_gravity")
 var can_double_jump = true
@@ -60,21 +65,21 @@ var has_double_jumped = false
 var is_attacking := false
 var is_collecting := false
 
-var _current_speed: float
-var _spawn_point = Vector3(0, 5, 0)
-var _animation_sequence := 0
-var _last_applied_animation_sequence := 0
-var _last_requested_animation: StringName = &""
-var _appearance_sync_requesters: Dictionary = {}
-var _server_animation_request_tokens := SERVER_ANIMATION_REQUEST_BURST
-var _last_server_animation_token_update_msec := 0
-var _server_pickup_animation_started_msec := -1
-var _last_server_pickup_request_msec := -PICKUP_REQUEST_COOLDOWN_MSEC
-var _pickup_area_camera_yaw_offset := 0.0
-var _equipped_hat_visual_id := ""
+# Fog and Safe Zone System
+signal fog_toggled(is_fogged: bool)
+var is_fogged: bool = false
+var safe_zone_active: bool = false
+var fog_intensity: float = 0.8
+var fog_color := Color(0.3, 0.3, 0.4)
+
+# Stun System for Seeker Flashbangs
+var is_stunned: bool = false
+var stun_timer: float = 0.0
+var stun_reason: String = ""
 
 @onready var nickname: Label3D = $PlayerNick/Nickname
 
+# Animation and Movement State Variables (required by game mechanics)
 @onready var _bottom_mesh: MeshInstance3D = get_node("GodotRobot3D/RobotArmature/Skeleton3D/Bottom")
 @onready var _chest_mesh: MeshInstance3D = get_node("GodotRobot3D/RobotArmature/Skeleton3D/Chest")
 @onready var _face_mesh: MeshInstance3D = get_node("GodotRobot3D/RobotArmature/Skeleton3D/Face")
@@ -82,6 +87,22 @@ var _equipped_hat_visual_id := ""
 @onready var _skeleton: Skeleton3D = get_node("GodotRobot3D/RobotArmature/Skeleton3D")
 @onready var _pickup_area: Area3D = $GodotRobot3D/InfrontArea3D
 @onready var _first_person_hud: CanvasLayer = $FirstPersonHUD
+
+# Animation tracking variables
+var _last_requested_animation: StringName = &""
+var _server_pickup_animation_started_msec := -1.0
+var _last_server_animation_token_update_msec := 0.0
+var _server_animation_request_tokens := 6.0
+var _animation_sequence := 0
+var _last_applied_animation_sequence := 0
+var _equipped_hat_visual_id: String = ""
+
+# Movement and pickup tracking variables
+var _current_speed: float = NORMAL_SPEED
+var _spawn_point = Vector3(0, 5, 0)
+var _pickup_area_camera_yaw_offset := 0.0
+var _appearance_sync_requesters: Dictionary = {}
+var _last_server_pickup_request_msec := -PICKUP_REQUEST_COOLDOWN_MSEC
 
 
 func _enter_tree():
@@ -118,13 +139,13 @@ func _ready():
 func _on_camera_perspective_changed(first_person: bool) -> void:
 	if not is_multiplayer_authority():
 		return
-	_body.visible = true
+	_body.visible = not first_person
 	_bottom_mesh.visible = not first_person
 	_chest_mesh.visible = not first_person
 	_face_mesh.visible = not first_person
 	_limbs_head_mesh.visible = true
 	nickname.visible = not first_person
-	_first_person_hud.visible = first_person
+	_first_person_hud.visible = false
 	for bone_name in FIRST_PERSON_HIDDEN_BONES:
 		var bone_index := _skeleton.find_bone(bone_name)
 		if bone_index >= 0:
@@ -153,9 +174,19 @@ func _align_pickup_area_with_camera() -> void:
 
 
 func _physics_process(delta):
+	if not hidden_spot_id.is_empty():
+		global_position = _hiding_anchor
+		velocity = Vector3.ZERO
+		return
+	if hiding_busy:
+		velocity = Vector3.ZERO
+		return
 	if not multiplayer.has_multiplayer_peer() or not is_multiplayer_authority():
 		return
 
+	if Shooter.actors.has(get_multiplayer_authority()) and Shooter.actors[get_multiplayer_authority()].hp<=0:
+		velocity = Vector3.ZERO
+		return
 	var current_scene = get_tree().get_current_scene()
 	var should_freeze = false
 	if current_scene:
@@ -180,14 +211,33 @@ func _physics_process(delta):
 		_request_animation(_body.get_movement_animation(velocity))
 		return
 
-	if Input.is_action_just_pressed("pickup") and is_on_floor() and _has_collectible_item_in_front():
+	var hiding_system := current_scene.get_node_or_null("HidingSystem") if current_scene else null
+	var hiding_interaction: bool = hiding_system != null and hiding_system.should_consume_interaction()
+	if Input.is_action_just_pressed("pickup") and not hiding_interaction and is_on_floor() and _has_collectible_item_in_front():
 		is_collecting = true
 		_request_animation(&"Emote2", true)
 		return
 
-	if Input.is_action_just_pressed("attack") and is_on_floor():
-		_start_attack()
-		return
+	# Check safe zone for cloaking effect
+	var in_safe_zone = false
+	for body in get_tree().get_nodes_in_group("safe_zones"):
+		var safe_zone = body as SafeZone
+		if safe_zone and safe_zone.is_active and safe_zone.overlaps_body(self):
+			in_safe_zone = true
+			break
+	
+	if in_safe_zone and not safe_zone_active:
+		safe_zone_active = true
+
+	if not in_safe_zone and safe_zone_active:
+		safe_zone_active = false
+
+	# Apply fog/powerup effect when active (fog, safe zone, or powerup)
+	if is_fogged or safe_zone_active:
+		_apply_visibility_effect()
+	else:
+		_remove_visibility_effect()
+
 
 	if is_on_floor():
 		can_double_jump = true
@@ -222,6 +272,7 @@ func _apply_gravity(delta: float) -> void:
 
 
 func _start_attack() -> void:
+	if not hidden_spot_id.is_empty() or hiding_busy: return
 	if is_attacking or is_collecting or not is_on_floor():
 		return
 	is_attacking = true
@@ -306,7 +357,6 @@ func sync_animation_state(state: StringName, sequence: int) -> void:
 	if not ALLOWED_ANIMATION_STATES.has(state):
 		return
 
-	# The owner already played the input-driven state immediately.
 	if is_multiplayer_authority():
 		return
 	_body.play_animation_state(state, true)
@@ -320,6 +370,11 @@ func _push_collided_items() -> void:
 
 
 func _process(_delta):
+	if not hidden_spot_id.is_empty():
+		_body.hide()
+		nickname.hide()
+		_first_person_hud.hide()
+		return
 	if not multiplayer.has_multiplayer_peer():
 		return
 	if not is_multiplayer_authority():
@@ -332,8 +387,8 @@ func _process(_delta):
 	if current_scene and current_scene.has_method("is_camera_input_blocked"):
 		camera_input_blocked = current_scene.is_camera_input_blocked()
 	_first_person_hud.visible = (
-		first_person and not camera_input_blocked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
-	)
+			first_person and not camera_input_blocked and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+		)
 	_check_out_of_bounds()
 
 
@@ -365,7 +420,7 @@ func _move() -> void:
 
 
 func _is_running() -> bool:
-	if Input.is_action_pressed("shift"):
+	if Input.is_action_pressed("shift") and Shooter.local_actor().get("stamina",0)>0:
 		_current_speed = SPRINT_SPEED
 		return true
 	_current_speed = NORMAL_SPEED
@@ -550,6 +605,9 @@ func request_remove_item(item_id: String, quantity: int = 1):
 		push_warning("Invalid quantity: " + str(quantity))
 		return
 
+	if BlasterWeapons.DATA.has(item_id):
+		Shooter.drop_gun(get_multiplayer_authority(),item_id)
+		return
 	var removed = player_inventory.remove_item(item_id, quantity)
 
 	if removed > 0:
@@ -767,33 +825,9 @@ func _get_mesh_top(mesh_instance: MeshInstance3D) -> float:
 	return visual_top
 
 
+# TODO: Implement starting items for new players.
 func _add_starting_items():
-	if not player_inventory:
-		return
-
-	var backpack := ItemDatabase.get_item("backpack")
-	if backpack:
-		player_inventory.add_item(backpack, 1)
-
-	var starting_item_ids: Array[String] = [
-		"fedora",
-		"headphones",
-		"pirate_hat",
-		"sheriff_hat",
-		"sombrero",
-		"wizard_hat",
-		"sword",
-		"sword_big",
-		"axe",
-		"chicken_leg",
-		"bone",
-		"chalice"
-	]
-
-	for item_id in starting_item_ids:
-		var item = ItemDatabase.get_item(item_id)
-		if item:
-			player_inventory.add_item(item, 1)
+	pass
 
 
 func pickup() -> void:
@@ -805,6 +839,7 @@ func pickup() -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func request_pickup() -> void:
+	if not hidden_spot_id.is_empty() or hiding_busy: return
 	if not multiplayer.is_server() or not _is_owner_request():
 		return
 	var now := Time.get_ticks_msec()
@@ -870,3 +905,112 @@ func _is_grounded_on_server() -> bool:
 	query.exclude = [get_rid()]
 	query.collide_with_areas = false
 	return not get_world_3d().direct_space_state.intersect_ray(query).is_empty()
+
+
+# Fog Toggle System for Hiders
+func toggle_fog() -> void:
+	is_fogged = not is_fogged
+	fog_toggled.emit(is_fogged)
+
+
+# Apply visibility effect (fog, safe zone, or powerup)
+func _apply_visibility_effect():
+	for mesh in [_bottom_mesh, _chest_mesh, _face_mesh, _limbs_head_mesh]:
+		if mesh:
+			var material = mesh.get_active_material(0) as StandardMaterial3D
+			if material:
+				material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+
+
+# Remove visibility effect when inactive
+func _remove_visibility_effect():
+	for mesh in [_bottom_mesh, _chest_mesh, _face_mesh, _limbs_head_mesh]:
+		if mesh:
+			var material = mesh.get_active_material(0) as StandardMaterial3D
+			if material and material.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED:
+				material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+
+
+# Power-up Effect Handling for Hiders
+func apply_powerup_effect(powerup_type: int):
+	match powerup_type:
+		0: # CAMOUFLAGE - Change to environment color (grayish)
+			for mesh in [_bottom_mesh, _chest_mesh, _face_mesh, _limbs_head_mesh]:
+				if mesh and mesh.get_active_material(0) is StandardMaterial3D:
+					var mat = mesh.get_active_material(0) as StandardMaterial3D
+					mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+					mat.albedo_color = Color(0.3, 0.3, 0.4)
+		1: # SPEED_BOOST - Already handled by _move() via flag check
+			pass
+		2: # INVISIBILITY - Similar to fog but stronger
+			for mesh in [_bottom_mesh, _chest_mesh, _face_mesh, _limbs_head_mesh]:
+				if mesh and mesh.get_active_material(0) is StandardMaterial3D:
+					var mat = mesh.get_active_material(0) as StandardMaterial3D
+					mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+					mat.albedo_color = Color(0.1, 0.1, 0.2)
+		3: # FLASHBANG - Visual flash effect handled by powerup system
+			pass
+
+
+func remove_powerup_effect(powerup_type: int):
+	match powerup_type:
+		0: # CAMOUFLAGE - Restore original texture
+			for mesh in [_bottom_mesh, _chest_mesh, _face_mesh, _limbs_head_mesh]:
+				if mesh and mesh.get_active_material(0) is StandardMaterial3D:
+					var mat = mesh.get_active_material(0) as StandardMaterial3D
+					mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+		2: # INVISIBILITY - Restore original texture
+			for mesh in [_bottom_mesh, _chest_mesh, _face_mesh, _limbs_head_mesh]:
+				if mesh and mesh.get_active_material(0) is StandardMaterial3D:
+					var mat = mesh.get_active_material(0) as StandardMaterial3D
+					mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+
+
+# Stun Effect for Seeker Flashbangs
+func stun_player(duration: float, reason: String = "") -> void:
+	if is_attacking or is_collecting: return
+	
+	stun_timer = duration
+	stun_reason = reason
+	is_stunned = true
+	
+	_request_animation(&"Idle", true)  # Reset to idle during stun
+
+
+# Handle Stun Timer countdown (call in _physics_process)
+func handle_stun_timer(delta):
+	if is_stunned and stun_timer > 0:
+		stun_timer -= delta
+		if stun_timer <= 0:
+			is_stunned = false
+
+
+func apply_hiding_state(spot_id: String, busy: bool, anchor: Vector3, check_kind: String = "") -> void:
+	var was_busy := hiding_busy
+	var was_hidden := not hidden_spot_id.is_empty()
+	hidden_spot_id = spot_id
+	hiding_busy = busy
+	if busy and not was_busy:
+		_body.play_animation_state(&"Crouch" if check_kind == "desk" else &"Emote2", true)
+	elif was_busy and not busy:
+		_body.play_animation_state(&"Idle", true)
+	if not spot_id.is_empty():
+		if not was_hidden:
+			_normal_collision_layer = collision_layer
+			_normal_collision_mask = collision_mask
+		_hiding_anchor = anchor
+		global_position = anchor
+		velocity = Vector3.ZERO
+		collision_layer = 0
+		collision_mask = 0
+		_body.hide()
+		nickname.hide()
+		_first_person_hud.hide()
+	elif was_hidden:
+		collision_layer = _normal_collision_layer
+		collision_mask = _normal_collision_mask
+		if is_multiplayer_authority():
+			_on_camera_perspective_changed(_spring_arm_offset.is_first_person)
+		else:
+			_body.show()
+			nickname.show()

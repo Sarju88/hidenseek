@@ -1,0 +1,12 @@
+[gd_scene load_steps=1 format=3 uid="uid-test"]
+
+[node name="Test" type="Node3D"]
+
+[sub_resource type="StandardMaterial3D" id="mat1"]
+albedo_color: #FFFFFF
+
+[node name="Cube" type="MeshInstance3D" parent="."]
+mesh: cube
+material: mat1
+
+[sub_resource type="BoxMesh" id="cube"]

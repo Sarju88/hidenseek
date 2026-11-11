@@ -1,0 +1,5 @@
+{
+  "name": "foundry-blaster-arena",
+  "compatibility_date": "2026-11-08",
+  "assets": {"directory": "../exports/cloudflare", "not_found_handling": "single-page-application"}
+}

@@ -1,0 +1,133 @@
+[gd_scene load_steps=25 format=3 uid="uid-arena-multi"]
+
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/level/main_level.tscn" id="2_main"]
+
+[node name="ArenaMultiLevel" type="Node3D"]
+script: ArenaMultiLevel
+
+# --- GROUND LEVEL PLAZA ---
+[node name="GroundLevel" type="Node3D" parent="."]
+
+[sub_resource type="StandardMaterial3D" id="1_ground_mat"]
+albedo_color: #87CEEB
+roughness = 0.6
+
+[sub_resource type="BoxMesh" id="2_floor_mesh"]
+material = SubResource("1_ground_mat")
+size = Vector3(50, 0.3, 50)
+
+[node name="MainFloor" type="MeshInstance3D" parent="GroundLevel"]
+mesh = SubResource("2_floor_mesh")
+collision_shape = SubResource("2_collision")
+
+[sub_resource type="BoxShape3D" id="2_collision"]
+size = Vector3(50, 0.3, 50)
+
+[node name="AmbientLight" type="DirectionalLight3D" parent="GroundLevel"]
+direction = Vector3(-1, -0.5, -1).normalized()
+shadow_enabled = true
+cast_shadows = true
+
+# Plaza cover objects (simple boxes for hiding spots)
+[node name="CoverObjects" type="Node3D" parent="GroundLevel"]
+[node name="Crate1" type="MeshInstance3D" parent="CoverObjects"]
+transform: Transform(0.5, 0, 0, -1, 0, 2, 0, 0, 1, 0, 0, 0)
+[node name="Pillar1" type="MeshInstance3D" parent="CoverObjects"]
+transform: Transform(-2, 0, 3, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+# --- MID-LEVEL BUILDINGS & ARCHES ---
+[node name="MidLevel" type="Node3D" parent="."]
+
+[sub_resource type="StandardMaterial3D" id="3_wall_mat"]
+albedo_color: #FFFFFF
+roughness = 0.7
+
+# Central archway structure
+[node name="ArchwayStructure" type="Node3D" parent="MidLevel"]
+transform: Transform(0, 5, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+# Arch base platform
+[node name="ArchBase" type="MeshInstance3D" parent="ArchwayStructure"]
+transform: Transform(0, 2.5, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+# Arch columns (simplified as boxes for now)
+[node name="LeftColumn" type="MeshInstance3D" parent="ArchwayStructure"]
+transform: Transform(-4, 5, 2, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="RightColumn" type="MeshInstance3D" parent="ArchwayStructure"]
+transform: Transform(4, 5, 2, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+# Staircase leading up (using Godot's built-in stairs or simple steps)
+[node name="StairsToMid" type="Node3D" parent="ArchwayStructure"]
+transform: Transform(0, 2.5, -3, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+# --- ROOFTOP LEVEL ---
+[node name="RooftopLevel" type="Node3D" parent="."]
+
+[sub_resource type="StandardMaterial3D" id="4_roof_mat"]
+albedo_color: #C2B280
+roughness = 0.5
+
+# Rooftop platform
+[node name="RoofPlatform" type="MeshInstance3D" parent="RooftopLevel"]
+transform: Transform(0, 12, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[sub_resource type="BoxMesh" id="4_roof_mesh"]
+material = SubResource("4_roof_mat")
+size = Vector3(40, 0.5, 40)
+
+[node name="RoofCollision" type="ShapeContainer3D" parent="RooftopLevel"]
+transform: Transform(0, 12, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[sub_resource type="BoxShape3D" id="4_roof_shape"]
+size = Vector3(40, 0.5, 40)
+
+# Rooftop cover objects (low walls for tactical hiding)
+[node name="RoofWalls" type="Node3D" parent="RooftopLevel"]
+transform: Transform(0, 12.25, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Wall1" type="MeshInstance3D" parent="RoofWalls"]
+transform: Transform(-8, 0, 4, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="Wall2" type="MeshInstance3D" parent="RoofWalls"]
+transform: Transform(8, 0, 4, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+# --- LINKING STRUCTURES (balconies/bridges) ---
+[node name="ConnectingStructures" type="Node3D" parent="."]
+
+[sub_resource type="StandardMaterial3D" id="5_bridge_mat"]
+albedo_color: #8B4513
+roughness = 0.6
+
+# Bridge from ground to mid-level
+[node name="GroundToMidBridge" type="MeshInstance3D" parent="ConnectingStructures"]
+transform: Transform(0, 2.75, -5, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[sub_resource type="BoxMesh" id="5_bridge_mesh"]
+material = SubResource("5_bridge_mat")
+size = Vector3(6, 0.5, 8)
+
+[node name="BridgeCollision" type="ShapeContainer3D" parent="ConnectingStructures"]
+transform: Transform(0, 2.75, -5, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[sub_resource type="BoxShape3D" id="5_bridge_shape"]
+size = Vector3(6, 0.5, 8)
+
+# Bridge from mid to rooftop
+[node name="MidToRoofBridge" type="MeshInstance3D" parent="ConnectingStructures"]
+transform: Transform(0, 9.25, -5, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[node name="BridgeCollision2" type="ShapeContainer3D" parent="ConnectingStructures"]
+transform: Transform(0, 9.25, -5, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+[sub_resource type="BoxShape3D" id="5_bridge_shape_2"]
+size = Vector3(6, 0.5, 8)
+
+# --- PLAYER SPAWN POINT ---
+[node name="PlayerSpawn" type="Node3D" parent="."]
+transform: Transform(0, 1.5, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0)
+
+# Reference to player scene for spawning
+[node name="PlayerTemplate" type="Node3D" parent="."]
+script: ArenaMultiLevel

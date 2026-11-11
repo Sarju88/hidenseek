@@ -27,6 +27,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_h7x4v")
+group = "inventory_ui"
 
 [node name="SafeArea" type="MarginContainer" parent="."]
 layout_mode = 1
