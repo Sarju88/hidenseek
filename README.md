@@ -13,8 +13,22 @@ Browser build: https://sarju88.github.io/hidenseek/
 - R (or F6 on desktop): switch between hider and seeker in solo play.
 - White outline + hand + E keycap: an interactable hiding spot.
 
-The browser version is solo. Desktop builds support LAN multiplayer using ENet
-(port 8080). Static GitHub Pages hosting does not provide a multiplayer server.
+The browser version supports peer-to-peer multiplayer with invite/reply codes:
+
+1. Host selects **Host**, copies the invite code, and sends it to one friend.
+2. Friend pastes it into **Host invite** and selects **Join**.
+3. Friend copies the generated reply and sends it back to the host.
+4. Host pastes the reply into the invite panel and selects **Connect Friend**.
+
+Use Escape → **Invite Player** (or **New Invite** in the panel) for another
+friend. Keep the host's game tab open and active. Resume and Main Menu work in
+the web pause menu; Quit is deliberately absent because browsers cannot close
+their own game runtime usefully.
+
+WebRTC uses public STUN servers to discover direct routes. Some restrictive
+networks require a TURN relay, which is not configured. No signaling backend or
+Cloudflare account is needed for this two-way code exchange. Desktop LAN play
+uses ENet on port 8080; native and browser transports are separate.
 
 ## Develop and export
 

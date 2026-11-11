@@ -11,61 +11,53 @@ var pan := Vector2.ZERO
 @onready var panel: PanelContainer = $Overlay/Panel
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		$Overlay/Panel/MarginContainer/Buttons/Quit.hide()
+		var invite := Button.new()
+		invite.text = "INVITE PLAYER"
+		invite.add_theme_font_size_override("font_size", 28)
+		invite.pressed.connect(func():
+			if Network.web_lobby and Network.web_lobby.hosting:
+				hide_menu()
+				var lobby := get_tree().current_scene.get_node_or_null("WebLobbyUI")
+				if lobby:
+					if Network.web_lobby.code.is_empty(): Network.web_lobby.create_invite()
+					lobby.show_panel())
+		$Overlay/Panel/MarginContainer/Buttons.add_child(invite)
 	resized.connect(_update_responsive_layout)
 	call_deferred("_update_responsive_layout")
 	hide()
 
-
 func show_menu() -> void:
 	show()
+	var invite := $Overlay/Panel/MarginContainer/Buttons.get_child(-1) as Button
+	if OS.has_feature("web") and invite: invite.visible = Network.web_lobby != null and Network.web_lobby.hosting
 	call_deferred("_update_responsive_layout")
 	resume_button.grab_focus()
 
-
 func hide_menu() -> void:
-	if not has_node("/node/Overlay"):
-		return
-	var overlay := get_node_or_null("/node/Overlay") as Node
-	if is_instance_valid(overlay):
-		overlay.hide()
+	hide()
 
-
-# Returns true if menu is visible (using Control.visible property)
 func is_menu_visible() -> bool:
 	return visible
 
 func _update_responsive_layout() -> void:
-	if not has_node("/node/Overlay"):
-		return
-	
-	var overlay := get_node_or_null("/node/Overlay") as Node
-	if not overlay or not overlay.has_node("Panel"):
-		return
-
-	var panel = overlay.get_node_or_null("Panel") as PanelContainer
-	if not panel:
-		return
-		
-	var available_size := Vector2(
-		maxf(1.0, size.x - SAFE_AREA_MARGIN * 2.0), maxf(1.0, size.y - SAFE_AREA_MARGIN * 2.0)
-	)
-	var temp_size := Vector2(panel.size.x, panel.size.y)
-	if not temp_size or temp_size.x <= 0.0 or temp_size.y <= 0.0:
-		return
-	var scale_factor := minf(1.0, minf(available_size.x / temp_size.x, available_size.y / temp_size.y))
-	panel.pivot_offset = pan
-	panel.scale = Vector2.ONE * scale_factor
-
+	if not panel: return
+	var available := Vector2(maxf(1.0, size.x - SAFE_AREA_MARGIN * 2), maxf(1.0, size.y - SAFE_AREA_MARGIN * 2))
+	var needed := panel.get_combined_minimum_size()
+	if needed.x <= 0 or needed.y <= 0: return
+	var factor := minf(1.0, minf(available.x / needed.x, available.y / needed.y))
+	panel.pivot_offset = panel.size * 0.5
+	panel.scale = Vector2.ONE * factor
 
 func _on_resume_pressed() -> void:
-	if is_instance_valid(resume_button):
-		resume_button.grab_focus()
-
+	resume_pressed.emit()
 
 func _on_main_menu_pressed() -> void:
-	if has_node("/node/Overlay"):
-		hide_menu()
-
+	main_menu_pressed.emit()
 
 func _on_quit_pressed() -> void:
-	get_tree().quit()
+	if OS.has_feature("web"):
+		main_menu_pressed.emit()
+		return
+	quit_pressed.emit()

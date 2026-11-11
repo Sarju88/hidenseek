@@ -16,10 +16,18 @@ const SAFE_AREA_MARGIN := 24.0
 
 func _ready() -> void:
 	if OS.has_feature("web"):
-		$MainContainer/MainMenu/Buttons/Host.text = "PLAY"
-		$MainContainer/MainMenu/Buttons/Join.hide()
-		$MainContainer/MainMenu/Option3.hide()
+		$MainContainer/MainMenu/Option3/Label.text = "Host invite : "
+		address_input.placeholder_text = "Paste host's HNS1. invite code"
+		address_input.max_length = 32768
+		address_input.custom_minimum_size.x = 280
 		$MainContainer/MainMenu/Option4.hide()
+		var help := Label.new()
+		help.name = "ConnectionStatus"
+		help.text = "Host creates an invite. Join pastes it and sends a reply back."
+		help.add_theme_font_size_override("font_size", 18)
+		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		help.custom_minimum_size.x = 620
+		$MainContainer.add_child(help)
 	skin_input.clear()
 	for skin_name in SKIN_OPTIONS:
 		skin_input.add_item(skin_name)
@@ -74,3 +82,8 @@ func _update_responsive_layout() -> void:
 
 func get_skin() -> String:
 	return skin_input.get_item_text(skin_input.selected).to_lower()
+
+
+func set_connection_status(message: String) -> void:
+	var label := get_node_or_null("MainContainer/ConnectionStatus") as Label
+	if label: label.text = message

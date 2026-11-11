@@ -22,9 +22,35 @@ references use source images, so exports do not depend on a developer's cache.
 
 ## Limits
 
-This static web release supports solo play. Browser networking cannot use the
-native ENet transport. Cross-browser online multiplayer needs a separate server
-and a browser-supported transport; GitHub Pages does not run game servers.
+The static web release supports direct browser-to-browser WebRTC multiplayer.
+Host and Join exchange an invite and a reply manually; the host's browser is the
+authoritative game server. Public STUN servers discover routes. Restricted NATs
+may require a TURN relay; none is configured. The host must keep the game tab
+open and active. Automatic short room codes would need a signaling service;
+GitHub Pages does not run such a service. Desktop ENet sessions are separate.
+
+For local browser integration tests:
+
+```sh
+python3 scripts/deploy/build_web.py --browser-test --output exports/web-test
+python3 -m http.server 8765 --directory exports/web-test
+```
+
+This fixture exposes commands for two controlled browser instances to exchange
+codes and inspect replicated state. It is excluded from production builds.
+Normal export deliberately removes the fixture from a reused staging cache.
+
+With two Paradev browser panes available, run the complete browser test using
+those pane IDs and the workspace ID:
+
+```sh
+python3 tests/run_web_browser_test.py --workspace WORKSPACE_ID --host-pane HOST_PANE --guest-pane GUEST_PANE
+```
+
+The test exchanges real WebRTC invites/replies, checks replicated movement,
+remote hiding and discovery, menu controls, and disconnect cleanup. Inactive
+embedded panes throttle RAF, so the fixture explicitly polls Godot networking
+and timers while the test controls both peers.
 
 ## Cloudflare custom domain
 

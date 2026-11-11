@@ -82,6 +82,8 @@ func _on_server_disconnected():
 
 
 func _reset_session_ui() -> void:
+	var lobby := get_node_or_null("WebLobbyUI")
+	if lobby: lobby.hide_panel()
 	for child in players_container.get_children():
 		child.queue_free()
 
@@ -127,6 +129,8 @@ func _on_host_pressed(nickname: String, skin: String):
 		_update_mouse_mode()
 		return
 	main_menu.hide_menu()
+	if OS.has_feature("web"):
+		get_node("WebLobbyUI").show_panel()
 	_update_mouse_mode()
 
 
@@ -134,10 +138,14 @@ func _on_join_pressed(nickname: String, skin: String, address: String):
 	var error = Network.join_game(nickname, skin, address)
 	if error:
 		push_warning("Failed to join game. Error: " + str(error))
+		if OS.has_feature("web") and Network.web_lobby:
+			main_menu.set_connection_status(Network.web_lobby.status)
 		main_menu.show_menu()
 		_update_mouse_mode()
 		return
 	main_menu.hide_menu()
+	if OS.has_feature("web"):
+		get_node("WebLobbyUI").show_panel()
 	_update_mouse_mode()
 
 
@@ -183,7 +191,7 @@ func _remove_player(id):
 
 func _on_quit_pressed() -> void:
 	Network.leave_game()
-	get_tree().quit()
+	if not OS.has_feature("web"): get_tree().quit()
 
 
 func toggle_chat():
@@ -372,6 +380,8 @@ func _on_inventory_closed():
 
 
 func is_gameplay_input_blocked() -> bool:
+	var lobby := get_node_or_null("WebLobbyUI")
+	if lobby and lobby.is_open: return true
 	return pause_menu.is_menu_visible() or inventory_visible or multiplayer_chat.is_chat_visible()
 
 
@@ -380,6 +390,10 @@ func is_camera_input_blocked() -> bool:
 
 
 func _handle_pause_action() -> void:
+	var lobby := get_node_or_null("WebLobbyUI")
+	if lobby and lobby.is_open:
+		lobby.hide_panel()
+		return
 	if inventory_visible:
 		_close_inventory()
 		return
@@ -423,7 +437,7 @@ func _update_mouse_mode() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	var ui_requires_cursor := bool(
-		main_menu.is_menu_visible() or pause_menu.is_menu_visible() or inventory_visible or not multiplayer.has_multiplayer_peer()
+		main_menu.is_menu_visible() or pause_menu.is_menu_visible() or is_gameplay_input_blocked() or not multiplayer.has_multiplayer_peer()
 	)
 	if ui_requires_cursor:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -447,8 +461,7 @@ func _on_pause_main_menu_requested():
 
 
 func _on_pause_quit_pressed() -> void:
-	Network.leave_game()
-	get_tree().quit()
+	_on_quit_pressed()
 
 
 func update_local_inventory_display():

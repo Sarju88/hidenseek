@@ -14,6 +14,8 @@ const MAX_ADDRESS_LENGTH := 253
 var players = {}
 var player_info = {"nick": "host", "skin": Character.SkinColor.BLUE}
 var _session_active := false
+var web_lobby: Node
+const WebLobby = preload("res://scripts/network/web_lobby.gd")
 
 # Game mode settings (used by main menu and shooter scripts)
 @export var shooter_mode: int = 0  # 0=team deathmatch, 1=free for all, 2=capture the flag
@@ -21,6 +23,9 @@ var _session_active := false
 
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		web_lobby = WebLobby.new()
+		add_child(web_lobby)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.peer_disconnected.connect(_on_player_disconnected)
@@ -30,8 +35,8 @@ func _ready() -> void:
 
 func start_host(nickname: String, skin_color_str: String):
 	if OS.has_feature("web"):
-		# Static web hosting supports solo play without a native UDP listener.
-		multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+		var error: Error = web_lobby.host()
+		if error != OK: return error
 	else:
 		var peer = ENetMultiplayerPeer.new()
 		var error = peer.create_server(server_port, MAX_PLAYERS)
@@ -53,7 +58,11 @@ func start_host(nickname: String, skin_color_str: String):
 
 func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS):
 	if OS.has_feature("web"):
-		return ERR_UNAVAILABLE
+		player_info["nick"] = sanitize_nickname(nickname, "Player")
+		player_info["skin"] = skin_str_to_e(skin_color_str)
+		var error: Error = web_lobby.join_invite(address)
+		_session_active = error == OK
+		return error
 	address = sanitize_address(address)
 	if address.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -122,6 +131,7 @@ func leave_game() -> void:
 
 
 func _finish_session() -> void:
+	if web_lobby: web_lobby.close()
 	var had_session := _session_active or multiplayer.multiplayer_peer != null or not players.is_empty()
 	_session_active = false
 	multiplayer.multiplayer_peer = null
