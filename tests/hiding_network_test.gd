@@ -32,10 +32,15 @@ func run() -> void:
   print("[Hiding net client] timeout")
   get_tree().quit(1)
   return
- check(await wait_for(func(): return Network.players.size() == 2 and system.roles.size() == 2), "Two real clients must connect")
+ check(await wait_for(func(): return Network.players.size() == 2), "Two real clients must connect")
  if failed:
   get_tree().quit(1)
   return
+ check(system.phase == system.LOBBY, "Players wait in lobby")
+ check(not system.start_round(-1), "Nonhost cannot start")
+ system.hiding_seconds = 0.3
+ check(system.start_round(Network.session_host_id), "Host starts round")
+ check(await wait_for(func(): return system.phase == system.SEEKING), "Server finishes hiding countdown")
  var hider := 0
  var seeker := 0
  for id in system.roles:
@@ -67,7 +72,7 @@ func run() -> void:
  inspect.rpc("released", hider, spot.spot_id)
  check(await wait_for(func(): return reports.size() == 2), "Both clients restore body visibility and collision")
  await get_tree().create_timer(0.2).timeout
- check(system.player(hider).global_position.distance_to(level.get_spawn_point(hider)) < 0.3, "Owner accepts server lobby relocation")
+ check(system.player(hider).global_position.distance_to(system._anchors[hider]) < 0.3, "Owner accepts server lobby relocation")
  finish.rpc(not failed)
  print("[Hiding net server] failed=", failed)
  await get_tree().create_timer(0.05).timeout

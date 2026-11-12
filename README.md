@@ -10,7 +10,10 @@ Browser build: https://sarju88.github.io/hidenseek/
 
 - WASD: move; mouse: look; Space: jump; Escape: pause.
 - E: hide, exit, or check the object you are looking at.
-- R (or F6 on desktop): switch between hider and seeker in solo play.
+- Host clicks Start Game with at least two players; everyone waits frozen in the lobby.
+- One random seeker stays blind and frozen for 60 seconds while hiders hide.
+- After the countdown, the seeker can move and check hiding spots.
+- Caught players and late joins wait for the next round.
 - White outline + hand + E keycap: an interactable hiding spot.
 
 ## Host and join by address

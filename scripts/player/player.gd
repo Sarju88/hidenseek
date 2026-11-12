@@ -53,6 +53,12 @@ const FIRST_PERSON_HIDDEN_BONES: Array[StringName] = [&"Head", &"HeadTop"]
 @export var green_texture: CompressedTexture2D
 @export var red_texture: CompressedTexture2D
 
+var round_locked := true
+var _round_anchor := Vector3.ZERO
+var _round_blind := false
+var _normal_camera_mask := 1048575
+var _normal_camera_environment: Environment
+var _blind_environment: Environment
 var hidden_spot_id := ""
 var hiding_busy := false
 var _hiding_anchor := Vector3.ZERO
@@ -111,6 +117,10 @@ func _enter_tree():
 
 
 func _ready():
+	_round_anchor = global_position
+	var view := get_node("SpringArmOffset/SpringArm3D/Camera3D") as Camera3D
+	_normal_camera_mask = view.cull_mask
+	_normal_camera_environment = view.environment
 	if multiplayer.is_server():
 		player_inventory = PlayerInventory.new()
 		_add_starting_items()
@@ -174,6 +184,10 @@ func _align_pickup_area_with_camera() -> void:
 
 
 func _physics_process(delta):
+	if round_locked:
+		global_position = _round_anchor
+		velocity = Vector3.ZERO
+		return
 	if not hidden_spot_id.is_empty():
 		global_position = _hiding_anchor
 		velocity = Vector3.ZERO
@@ -272,7 +286,7 @@ func _apply_gravity(delta: float) -> void:
 
 
 func _start_attack() -> void:
-	if not hidden_spot_id.is_empty() or hiding_busy: return
+	if round_locked or not hidden_spot_id.is_empty() or hiding_busy: return
 	if is_attacking or is_collecting or not is_on_floor():
 		return
 	is_attacking = true
@@ -839,7 +853,7 @@ func pickup() -> void:
 
 @rpc("any_peer", "call_local", "reliable")
 func request_pickup() -> void:
-	if not hidden_spot_id.is_empty() or hiding_busy: return
+	if round_locked or not hidden_spot_id.is_empty() or hiding_busy: return
 	if not multiplayer.is_server() or not _is_owner_request():
 		return
 	var now := Time.get_ticks_msec()
@@ -1014,3 +1028,25 @@ func apply_hiding_state(spot_id: String, busy: bool, anchor: Vector3, check_kind
 		else:
 			_body.show()
 			nickname.show()
+
+
+func apply_round_lock(locked: bool, anchor: Vector3, blind: bool = false) -> void:
+	round_locked = locked
+	_round_anchor = anchor
+	if locked:
+		velocity = Vector3.ZERO
+		global_position = anchor
+	if blind == _round_blind: return
+	_round_blind = blind
+	if not is_multiplayer_authority(): return
+	var view := get_node("SpringArmOffset/SpringArm3D/Camera3D") as Camera3D
+	if blind:
+		if not _blind_environment:
+			_blind_environment = Environment.new()
+			_blind_environment.background_mode = Environment.BG_COLOR
+			_blind_environment.background_color = Color.BLACK
+		view.cull_mask = 0
+		view.environment = _blind_environment
+	else:
+		view.cull_mask = _normal_camera_mask
+		view.environment = _normal_camera_environment

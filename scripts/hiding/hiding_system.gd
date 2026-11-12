@@ -12,7 +12,18 @@ var hidden: Dictionary = {} # peer -> {spot, entry}
 var checks: Dictionary = {} # spot -> {peer, finish}
 var cooldowns: Dictionary = {}
 var found_counts: Dictionary = {}
-var _solo_role := HIDER
+const LOBBY := "lobby"
+const HIDING := "hiding"
+const SEEKING := "seeking"
+@export var hiding_seconds := 60.0
+var phase := LOBBY
+var round_number := 0
+var announcement := "Waiting for the host to start."
+var caught: Dictionary = {}
+var _anchors: Dictionary = {}
+var _hide_deadline := 0
+var _client_deadline := 0
+var _last_countdown := -1
 var _focus: OfficeHidingSpot
 var _hud: Control
 var _peek_camera: Camera3D
@@ -33,6 +44,7 @@ func _ready() -> void:
   _hud = HUD.new()
   _hud.name = "InteractionHUD"
   canvas.add_child(_hud)
+  _hud.start_requested.connect(_start_clicked)
   _peek_camera = Camera3D.new()
   _peek_camera.name = "HidingCamera"
   _peek_camera.fov = 78
@@ -55,23 +67,111 @@ func _player_connected(_peer: int, _info: Dictionary) -> void:
 
 func _refresh_members() -> void:
  if not multiplayer.has_multiplayer_peer(): return
- if multiplayer.is_server():
-  var ids := Network.players.keys()
-  ids.sort()
-  var next_roles := {}
-  var seeker_id: int = Network.session_host_id if ids.has(Network.session_host_id) else (int(ids[0]) if not ids.is_empty() else 0)
-  for id in ids:
-   if roles.get(id, HIDER) == SEEKER:
-    seeker_id = int(id)
-    break
-  for id in ids:
-   next_roles[id] = _solo_role if ids.size() == 1 else (SEEKER if id == seeker_id else HIDER)
-  for id in hidden.keys():
-   if not next_roles.has(id) or next_roles[id] == SEEKER: _release(id)
-  roles = next_roles
-  _publish()
- else:
+ if not multiplayer.is_server():
   request_snapshot.rpc_id(1)
+  return
+ var ids := Network.players.keys()
+ for id in _anchors.keys():
+  if not ids.has(id): _anchors.erase(id)
+ for id in ids: _ensure_anchor(int(id))
+ if phase != LOBBY:
+  var seeker_present := false
+  var hider_present := false
+  for id in roles.keys():
+   if not ids.has(id):
+    roles.erase(id)
+    caught.erase(id)
+   elif roles[id] == SEEKER: seeker_present = true
+   elif not caught.has(id): hider_present = true
+  if not seeker_present or not hider_present:
+   _return_to_lobby("Round ended. The host can start again.")
+ _publish()
+
+func _ensure_anchor(peer: int) -> void:
+ if _anchors.has(peer): return
+ for slot in range(1, Network.MAX_PLAYERS + 1):
+  var point: Vector3 = get_parent().get_spawn_point(slot)
+  if not _anchors.values().has(point):
+   _anchors[peer] = point
+   return
+ _anchors[peer] = get_parent().get_spawn_point(peer)
+
+func is_movement_locked(peer: int) -> bool:
+ return phase == LOBBY or not roles.has(peer) or caught.has(peer) or (phase == HIDING and role(peer) == SEEKER)
+
+func is_blind(peer: int) -> bool:
+ return phase == HIDING and roles.has(peer) and role(peer) == SEEKER
+
+func can_interact(peer: int) -> bool:
+ return phase != LOBBY and roles.has(peer) and not is_movement_locked(peer)
+
+func seconds_left() -> int:
+ var deadline := _hide_deadline if multiplayer.is_server() else _client_deadline
+ return maxi(0, int(ceil((deadline - Time.get_ticks_msec()) / 1000.0))) if phase == HIDING else 0
+
+func _start_clicked() -> void:
+ if not multiplayer.has_multiplayer_peer(): return
+ if multiplayer.is_server(): start_round(multiplayer.get_unique_id())
+ else: request_start_round.rpc_id(1)
+
+@rpc("any_peer", "reliable")
+func request_start_round() -> void:
+ if multiplayer.is_server(): start_round(multiplayer.get_remote_sender_id())
+
+func start_round(requester: int) -> bool:
+ if not multiplayer.has_multiplayer_peer() or not multiplayer.is_server(): return false
+ if phase != LOBBY or requester != Network.session_host_id or not Network.players.has(requester): return false
+ var ids := Network.players.keys()
+ if ids.size() < 2: return false
+ for id in hidden.keys(): _release(id)
+ checks.clear()
+ caught.clear()
+ found_counts.clear()
+ roles.clear()
+ _anchors.clear()
+ ids.shuffle()
+ for i in range(ids.size()):
+  var id: int = ids[i]
+  roles[id] = SEEKER if i == 0 else HIDER
+  _ensure_anchor(id)
+  var actor := player(id)
+  if actor:
+   relocate_player(id, _anchors[id])
+   if not multiplayer.get_peers().is_empty(): relocate_player.rpc(id, _anchors[id])
+ round_number += 1
+ phase = HIDING
+ _hide_deadline = Time.get_ticks_msec() + int(hiding_seconds * 1000)
+ _last_countdown = -1
+ announcement = "Hiders: find a hiding spot!"
+ _publish()
+ return true
+
+func _return_to_lobby(message: String) -> void:
+ for id in hidden.keys(): _release(id)
+ checks.clear()
+ caught.clear()
+ roles.clear()
+ phase = LOBBY
+ _hide_deadline = 0
+ announcement = message
+ _anchors.clear()
+ for id in Network.players: _ensure_anchor(int(id))
+
+func _tick_round() -> void:
+ # Reassert server-owned frozen positions after processing client replication.
+ for id in _anchors:
+  var actor := player(int(id))
+  if actor and is_movement_locked(int(id)):
+   actor.global_position = _anchors[id]
+   actor.velocity = Vector3.ZERO
+ if phase == HIDING:
+  if Time.get_ticks_msec() >= _hide_deadline:
+   phase = SEEKING
+   announcement = "Ready or not, here comes the seeker!"
+   _publish()
+  elif seconds_left() != _last_countdown:
+   _last_countdown = seconds_left()
+   _publish()
 
 @rpc("any_peer", "reliable")
 func request_snapshot() -> void:
@@ -85,7 +185,10 @@ func _state() -> Dictionary:
  for id in hidden: occupants[id] = hidden[id].spot
  var checking := {}
  for id in checks: checking[id] = checks[id].peer
- return {"roles": roles.duplicate(), "hidden": occupants, "checking": checking, "found": found_counts.duplicate()}
+ var remaining := maxf(0.0, (_hide_deadline - Time.get_ticks_msec()) / 1000.0) if phase == HIDING else 0.0
+ return {"roles": roles.duplicate(), "hidden": occupants, "checking": checking, "found": found_counts.duplicate(),
+  "phase": phase, "remaining": remaining, "caught": caught.duplicate(), "anchors": _anchors.duplicate(),
+  "host": Network.session_host_id, "round": round_number, "announcement": announcement}
 
 func _publish() -> void:
  var state := _state()
@@ -94,6 +197,13 @@ func _publish() -> void:
 
 @rpc("authority", "reliable")
 func receive_state(state: Dictionary) -> void:
+ phase = state.phase
+ caught = state.caught.duplicate()
+ _anchors = state.anchors.duplicate()
+ round_number = int(state.round)
+ announcement = state.announcement
+ Network.session_host_id = int(state.host)
+ _client_deadline = Time.get_ticks_msec() + int(float(state.remaining) * 1000)
  roles = state.roles.duplicate()
  found_counts = state.found.duplicate()
  var all_spots := spots()
@@ -113,6 +223,8 @@ func receive_state(state: Dictionary) -> void:
   for checking_id in state.checking:
    if state.checking[checking_id] == id and all_spots.has(checking_id): check_kind = all_spots[checking_id].kind
   child.apply_hiding_state(spot_id, busy, spot.hide_position() if spot else Vector3.ZERO, check_kind)
+  var anchor: Vector3 = _anchors.get(id, child.global_position)
+  child.apply_round_lock(is_movement_locked(id), anchor, is_blind(id))
  if multiplayer.has_multiplayer_peer():
   var local_id := multiplayer.get_unique_id()
   get_node("/root/GameManager").set("current_role", role(local_id))
@@ -124,9 +236,10 @@ func receive_state(state: Dictionary) -> void:
   var is_checking: bool = state.checking.values().has(local_id)
   if is_checking and _local_check_started == 0: _local_check_started = Time.get_ticks_msec()
   if not is_checking: _local_check_started = 0
+  get_parent()._update_mouse_mode()
 
 func _peer_left(peer: int) -> void:
- if not multiplayer.is_server(): return
+ if not multiplayer.has_multiplayer_peer() or not multiplayer.is_server(): return
  _release(peer)
  for id in checks.keys():
   if checks[id].peer == peer: checks.erase(id)
@@ -145,7 +258,13 @@ func _reset() -> void:
  found_counts.clear()
  _last_hidden = ""
  _local_check_started = 0
- _solo_role = HIDER
+ phase = LOBBY
+ caught.clear()
+ _anchors.clear()
+ _hide_deadline = 0
+ _client_deadline = 0
+ round_number = 0
+ announcement = "Waiting for the host to start."
  for spot in spots().values():
   spot.occupant = 0
   spot.checking = false
@@ -160,11 +279,6 @@ func _unhandled_input(event: InputEvent) -> void:
  if not multiplayer.has_multiplayer_peer(): return
  var actor := player(multiplayer.get_unique_id())
  if not actor or _blocked(): return
- if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_F6, KEY_R]:
-  if Network.players.size() == 1:
-   if multiplayer.is_server(): toggle_solo_role()
-   else: request_solo_role.rpc_id(1)
-  get_viewport().set_input_as_handled()
  if event is InputEventMouseMotion and not actor.hidden_spot_id.is_empty():
   _peek_yaw = clampf(_peek_yaw - event.relative.x * 0.003, -0.6, 0.6)
   _peek_pitch = clampf(_peek_pitch - event.relative.y * 0.003, -0.3, 0.3)
@@ -177,18 +291,6 @@ func _unhandled_input(event: InputEvent) -> void:
   var id := _focus.spot_id if is_instance_valid(_focus) else ""
   if multiplayer.is_server(): interact(multiplayer.get_unique_id(), id)
   else: request_interaction.rpc_id(1, id)
-
-@rpc("any_peer", "reliable")
-func request_solo_role() -> void:
- var sender := multiplayer.get_remote_sender_id()
- if multiplayer.is_server() and Network.players.size() == 1 and Network.players.has(sender): toggle_solo_role()
-
-func toggle_solo_role() -> void:
- if not multiplayer.is_server() or Network.players.size() != 1: return
- for id in hidden.keys(): _release(id)
- _solo_role = SEEKER if _solo_role == HIDER else HIDER
- checks.clear()
- _refresh_members()
 
 @rpc("any_peer", "reliable")
 func request_interaction(spot_id: String) -> void:
@@ -212,7 +314,7 @@ func _can_interact(actor: Character, spot: OfficeHidingSpot) -> bool:
 func interact(peer: int, spot_id: String) -> bool:
  if not multiplayer.is_server() or not Network.players.has(peer): return false
  var actor := player(peer)
- if not actor: return false
+ if not actor or not can_interact(peer): return false
  if hidden.has(peer):
   _release(peer)
   _publish()
@@ -283,10 +385,15 @@ func _finish_checks() -> void:
   var occupant: int = spot.occupant
   if occupant != 0 and hidden.has(occupant):
    _release(occupant, true)
+   caught[occupant] = true
    found_counts[seeker] = int(found_counts.get(seeker, 0)) + 1
    _tell(seeker, "Found a hider!", "found")
    _tell(occupant, "You were found! Back in the lobby.", "caught")
    hider_found.emit(seeker, occupant)
+   var remaining_hiders := 0
+   for member in roles:
+    if roles[member] == HIDER and not caught.has(member): remaining_hiders += 1
+   if remaining_hiders == 0: _return_to_lobby("All hiders found! The host can start the next round.")
   else: _tell(seeker, "Nobody here.", "empty")
   _publish()
 
@@ -311,7 +418,7 @@ func play_world_sound(cue: String, point: Vector3) -> void:
 
 func _update_focus(actor: Character) -> void:
  var next: OfficeHidingSpot
- if actor.hidden_spot_id.is_empty() and not actor.hiding_busy and not _blocked():
+ if can_interact(str(actor.name).to_int()) and actor.hidden_spot_id.is_empty() and not actor.hiding_busy and not _blocked():
   var camera := get_viewport().get_camera_3d()
   if camera:
    var from := camera.global_position
@@ -332,7 +439,9 @@ func _process(_delta: float) -> void:
  if not multiplayer.has_multiplayer_peer():
   if _hud: _hud.visible = false
   return
- if multiplayer.is_server(): _finish_checks()
+ if multiplayer.is_server():
+  _tick_round()
+  _finish_checks()
  if not _hud: return
  var peer := multiplayer.get_unique_id()
  var actor := player(peer)
@@ -345,7 +454,18 @@ func _process(_delta: float) -> void:
   _focus = null
   return
  _update_focus(actor)
+ _hud.round_phase = phase
+ _hud.seconds_remaining = seconds_left()
+ _hud.blind = is_blind(peer)
+ _hud.round_message = announcement
+ _hud.start_button.visible = phase == LOBBY and peer == Network.session_host_id
+ _hud.start_button.disabled = Network.players.size() < 2
+ _hud.start_button.text = "START GAME" if round_number == 0 else "START NEXT ROUND"
+ _hud.start_button.tooltip_text = "At least two players are needed" if Network.players.size() < 2 else "Randomly choose a seeker and begin hiding time"
+ _hud.waiting = not roles.has(peer) or caught.has(peer)
  _hud.role_text = ("SEEKER  ·  Found: " + str(found_counts.get(peer, 0))) if role(peer) == SEEKER else "HIDER  ·  Find a hiding spot"
+ if phase == LOBBY: _hud.role_text = "LOBBY  ·  %s players" % Network.players.size()
+ elif _hud.waiting: _hud.role_text = "WAITING FOR NEXT ROUND"
  _hud.hidden_kind = ""
  if not actor.hidden_spot_id.is_empty():
   var spot: OfficeHidingSpot = spots().get(actor.hidden_spot_id)

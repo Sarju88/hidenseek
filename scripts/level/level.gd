@@ -382,6 +382,8 @@ func is_gameplay_input_blocked() -> bool:
 
 
 func is_camera_input_blocked() -> bool:
+	var actor := _get_local_player() if multiplayer.has_multiplayer_peer() else null
+	if actor and actor.round_locked: return true
 	return is_gameplay_input_blocked() or inventory_visible or multiplayer_chat.is_chat_visible()
 
 
@@ -428,7 +430,10 @@ func _close_inventory() -> void:
 func _update_mouse_mode() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
+	var actor := _get_local_player() if multiplayer.has_multiplayer_peer() else null
+	var round_requires_cursor: bool = actor != null and actor.round_locked
 	var ui_requires_cursor := bool(
+		round_requires_cursor or
 		main_menu.is_menu_visible() or pause_menu.is_menu_visible() or is_gameplay_input_blocked() or not multiplayer.has_multiplayer_peer()
 	)
 	if ui_requires_cursor:

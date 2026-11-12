@@ -18,15 +18,20 @@ when a hiding spot is targeted; otherwise existing E pickup behavior remains.
 - One hider per spot. The server validates range, line of sight, roles,
   occupancy, and check cooldowns. Exits try the entry position and nearby
   clear positions before falling back to the lobby. Disconnects free spots.
-- Solo hosting starts as a hider. F6 switches between hider and seeker for
-  practicing the mechanics. Multiplayer assigns one seeker; later arrivals
-  are hiders. The current seeker stays assigned until they leave.
+- All players stay frozen in the lobby until the host clicks Start Game (minimum two).
+  The server randomly selects exactly one seeker. Hiders can move and hide for
+  60 seconds; the seeker has a black screen and cannot move, look, or interact.
+  Only the server ends the countdown and releases the seeker. Late joins and
+  caught players wait frozen until the next round. Finding every hider returns
+  everyone to the lobby. A seeker disconnect also ends the round.
+
 
 ## Verification
 
 Run from this project directory:
 
 ```
+godot --headless --path . res://tests/round_test.tscn
 godot --headless --path . res://tests/hiding_test.tscn
 godot --headless --path . res://tests/office_layout_test.tscn
 ```
@@ -35,8 +40,8 @@ For the real multiplayer test, start these in three terminals:
 
 ```
 godot --headless --path . res://tests/hiding_network_test.tscn -- --net-server
-godot --headless --path . res://tests/hiding_network_test.tscn -- --join=127.0.0.1
-godot --headless --path . res://tests/hiding_network_test.tscn -- --join=127.0.0.1
+godot --headless --path . res://tests/hiding_network_test.tscn -- --join=127.0.0.1:18081
+godot --headless --path . res://tests/hiding_network_test.tscn -- --join=127.0.0.1:18081
 ```
 
 The network test verifies remote requests, roles, occupancy snapshots, concealed

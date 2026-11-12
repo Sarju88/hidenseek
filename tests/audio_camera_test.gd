@@ -38,6 +38,10 @@ func run() -> void:
  check(boom.collision_mask == 2 and boom.shape is SphereShape3D, "Camera collision probes the world")
  for i in range(6): await get_tree().physics_frame
  check(boom.get_hit_length() < boom.spring_length, "Camera retracts before passing through the lobby wall")
+ var round_system = level.get_node("HidingSystem")
+ round_system.phase = round_system.SEEKING
+ round_system.roles = {1: round_system.HIDER}
+ round_system._publish()
  # Third-person aiming extends past the camera boom, while actor-based range still applies.
  actor.global_position = Vector3(-5, 0.05, 17.5)
  level.main_menu.hide()

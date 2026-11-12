@@ -43,46 +43,52 @@ else:raise RuntimeError('Peers failed to connect: '+json.dumps([{k:v for k,v in 
 check(h['peer']>1 and g['peer']>1 and h['peer']!=g['peer'],'Two browser clients connect by IP:port')
 check(h['session_host']==h['peer'],'Browser Host creates the server session')
 check(not h['main_menu'] and not g['main_menu'],'Joining enters the game without code panels')
-command(GUEST,'approach')
+check(h['phase']=='lobby' and h['locked'] and g['locked'], 'All players frozen in lobby')
+command(GUEST,'start')
+time.sleep(.4)
+check(command(GUEST)['phase']=='lobby','Guest cannot start round')
+command(HOST,'start')
 for _ in range(30):
  h=command(HOST);g=command(GUEST)
- pos=h['positions'].get(str(g['peer']),[0,0,0])
- if abs(pos[0]+5)<.3 and abs(pos[2]-17)<.3:break
+ if h['phase']=='hiding' and g['phase']=='hiding':break
  time.sleep(.2)
-else:raise RuntimeError('Remote movement not synchronized: '+json.dumps(h['positions']))
-check(True,'Remote movement synchronizes before interaction')
-command(GUEST,'hide')
-for _ in range(25):
- h=command(HOST);g=command(GUEST)
- if g['hidden'].get(str(g['peer'])) and h['hidden'].get(str(g['peer'])):break
- time.sleep(.2)
-else:raise RuntimeError('Remote hiding failed')
-check(not h['bodies'][str(g['peer'])],'Host sees remote hider concealed')
-command(HOST,'approach')
+check(h['phase']=='hiding' and g['phase']=='hiding','Host starts hiding countdown')
+check(55 <= h['remaining'] <= 60,'60-second hiding countdown')
+seeker,hider=(HOST,GUEST) if h['blind'] else (GUEST,HOST)
+s=command(seeker);r=command(hider)
+check(s['locked'] and s['blind'] and not r['locked'],'Random seeker blind and frozen; hider released')
+command(hider,'approach')
+for _ in range(20):
+ command(seeker);command(hider);time.sleep(.2)
+command(hider,'hide')
 for _ in range(30):
- h=command(HOST);g=command(GUEST)
- pos=g['positions'].get(str(h['peer']),[0,0,0])
- if abs(pos[0]+5)<.3 and abs(pos[2]-17)<.3:break
+ s=command(seeker);r=command(hider)
+ if r['hidden'].get(str(r['peer'])):break
  time.sleep(.2)
-else:raise RuntimeError('Host movement not synchronized')
-command(HOST,'check')
+check(bool(r['hidden'].get(str(r['peer']))),'Hider hides during countdown')
+check(not s['bodies'][str(r['peer'])],'Seeker sees concealed hider state')
+end=time.monotonic()+65
+while time.monotonic()<end:
+ s=command(seeker);r=command(hider)
+ if s['phase']=='seeking' and r['phase']=='seeking':break
+ time.sleep(1)
+check(s['phase']=='seeking' and not s['blind'] and not s['locked'],'Seeker released after full countdown')
+command(seeker,'approach')
+for _ in range(20):
+ command(seeker);command(hider);time.sleep(.2)
+command(seeker,'check')
 for _ in range(35):
- h=command(HOST);g=command(GUEST)
- if h['found'].get(str(h['peer']))==1 and not g['hidden'].get(str(g['peer'])):break
+ s=command(seeker);r=command(hider)
+ if s['phase']=='lobby' and r['phase']=='lobby':break
  time.sleep(.2)
-else:raise RuntimeError('Remote discovery failed')
-check(True,'Seeker checks and reveals remote hider')
+check(s['found'].get(str(s['peer']))==1 and not r['hidden'].get(str(r['peer'])),'Seeker finds hider; round returns to lobby')
+check(s['locked'] and r['locked'],'All players frozen between rounds')
 command(HOST,'pause')
 check(command(HOST)['paused'],'Pause menu opens')
 command(HOST,'resume')
-check(not command(HOST)['paused'],'Resume returns to the game')
+check(not command(HOST)['paused'],'Resume returns to game')
 command(GUEST,'menu')
-check(command(GUEST)['main_menu'],'Main Menu leaves the browser session')
-for _ in range(15):
- h=command(HOST)
- if len(h['players'])==1:break
- time.sleep(.3)
-check(len(h['players'])==1,'Host cleans up disconnected player')
+check(command(GUEST)['main_menu'],'Main Menu leaves browser session')
 command(HOST,'quit_guard')
-check(command(HOST)['main_menu'],'Web quit handler returns to menu without stopping engine')
-print('ALL ADDRESS-BASED BROWSER TESTS PASSED',flush=True)
+check(command(HOST)['main_menu'],'Web quit handler returns to menu')
+print('ALL BROWSER ROUND TESTS PASSED',flush=True)

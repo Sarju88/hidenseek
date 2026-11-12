@@ -39,6 +39,7 @@ func run() -> void:
   actors.append(actor)
  await get_tree().physics_frame
  await get_tree().physics_frame
+ system.phase = system.SEEKING
  system.roles = {1: 1, 2: 1, 3: 0}
  system._publish()
  var types := {}
@@ -46,6 +47,8 @@ func run() -> void:
   if not types.has(spot.kind): types[spot.kind] = spot
  check(types.size() == 5, "All five types must exist in the playable map")
  for kind in types:
+  system.caught.clear()
+  system._publish()
   var spot: OfficeHidingSpot = types[kind]
   system.cooldowns.clear()
   check(near(spot, actors[0]), kind + " must be reachable")

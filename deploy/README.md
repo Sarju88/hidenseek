@@ -69,7 +69,7 @@ python3 tests/run_web_browser_test.py --workspace WORKSPACE_ID --host-pane HOST_
 ```
 
 The fixture verifies real address-based connections, replicated movement, remote
-hiding/discovery, menus and disconnect cleanup. Inactive embedded panes throttle
+60-second rounds, lobby movement locks, random roles, hiding/discovery, and menus. Inactive embedded panes throttle
 RAF, so the fixture explicitly polls Godot networking/timers while controlling
 both clients. It is excluded from production exports.
 
@@ -93,3 +93,11 @@ Zone / Read, restricted to the `arjunrao.dev` zone. Store it in a local file wit
 0600 permissions or a local environment variable. Do not put the token in this
 repository or send it in chat. Domain configuration is pending that access or a
 manual DNS record change by the owner.
+
+An installed Chrome website remains a browser client; installation does not
+give it permission to listen as a game server. Blooket/Kahoot-style hosting
+means the host browser controls a room on an online backend. This project uses
+the same split, with the Godot server as that backend. For a temporary public
+server, run `ngrok http 8080` beside it and enter the assigned hostname as
+`wss://YOUR-HOST.ngrok-free.dev` in the game. The game website's custom domain
+and the multiplayer server address are separate.

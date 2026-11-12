@@ -20,6 +20,7 @@ func _command(args: Array) -> void:
  match command:
   "host": _level._on_host_pressed("Host", "blue", value)
   "join": _level._on_join_pressed("Guest", "green", value)
+  "start": _level.get_node("HidingSystem")._start_clicked()
   "pause": _level._show_pause_menu()
   "resume": _level.pause_menu._on_resume_pressed()
   "menu": _level.pause_menu._on_main_menu_pressed()
@@ -62,5 +63,5 @@ func _snapshot() -> void:
   "paused": _level.pause_menu.visible, "session_host": Network.session_host_id,
   "quit_visible": _level.pause_menu.get_node("Overlay/Panel/MarginContainer/Buttons/Quit").visible,
   "main_quit_visible": _level.main_menu.get_node("MainContainer/MainMenu/Option4").visible,
-  "roles": system.roles, "bodies": bodies, "positions": positions, "hidden": hidden, "found": system.found_counts}
+  "phase": system.phase, "remaining": system.seconds_left(), "locked": system.is_movement_locked(multiplayer.get_unique_id()), "blind": system.is_blind(multiplayer.get_unique_id()), "roles": system.roles, "bodies": bodies, "positions": positions, "hidden": hidden, "found": system.found_counts}
  JavaScriptBridge.get_interface("window").hnsState = JSON.stringify(state)

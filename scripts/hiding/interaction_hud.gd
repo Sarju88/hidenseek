@@ -1,5 +1,12 @@
 extends Control
 ## Reference-inspired hand, cream E keycap, and a depth-tested object outline.
+signal start_requested
+var round_phase := "lobby"
+var seconds_remaining := 60
+var blind := false
+var waiting := true
+var round_message := ""
+var start_button: Button
 var target_screen := Vector2.ZERO
 var action_text := ""
 var role_text := ""
@@ -14,6 +21,13 @@ var font: Font = ThemeDB.fallback_font
 func _ready() -> void:
  set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
  mouse_filter = Control.MOUSE_FILTER_IGNORE
+ start_button = Button.new()
+ start_button.text = "START GAME"
+ start_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+ start_button.position = Vector2(-130, -130)
+ start_button.size = Vector2(260, 52)
+ start_button.pressed.connect(func(): start_requested.emit())
+ add_child(start_button)
 
 func notify(text: String) -> void:
  message = text
@@ -31,6 +45,19 @@ func _center_text(text: String, y: float, font_size: int, color: Color = Color.W
 
 func _draw() -> void:
  var cream := Color("fff4d9")
+ if blind:
+  draw_rect(Rect2(Vector2.ZERO, size), Color.BLACK)
+  _center_text("YOU ARE THE SEEKER", size.y * 0.38, 32, cream)
+  _center_text("Give the hiders time to hide", size.y * 0.46, 22, cream)
+  _center_text(str(seconds_remaining), size.y * 0.6, 64, cream)
+  return
+ if round_phase == "lobby":
+  _center_text(round_message, size.y * 0.65, 22, cream)
+  _center_text("Movement unlocks when the host starts the round", size.y * 0.71, 18, cream)
+ elif round_phase == "hiding":
+  _center_text("HIDE!  ·  %s seconds remaining" % seconds_remaining, 125, 26, cream)
+ elif waiting:
+  _center_text("Waiting for the next round", 125, 26, cream)
  if hidden_kind in ["closet", "cabinet", "box"]:
   # A limited slit view lets the hider peek without seeing through solid walls.
   var slit := 0.33 if hidden_kind != "box" else 0.2
@@ -45,7 +72,7 @@ func _draw() -> void:
  if not role_text.is_empty():
   draw_style_box(_panel(), Rect2(20, 20, 480, 66))
   _text(role_text, Vector2(36, 47), 20, cream)
-  _text("E  interact / exit    ·    R  switch role in solo play", Vector2(36, 71), 14)
+  _text("E  interact / exit", Vector2(36, 71), 14)
  if prompt_visible:
   var p := target_screen
   draw_texture_rect(hand, Rect2(p - Vector2(24, 28), Vector2(48, 48)), false)
