@@ -4834,6 +4834,7 @@ _first_person_anchor = NodePath("../GodotRobot3D/FirstPersonCameraSource/FirstPe
 [node name="SpringArm3D" type="SpringArm3D" parent="SpringArmOffset" unique_id=1915471732]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
 spring_length = 5.0
+collision_mask = 2
 
 [node name="Camera3D" type="Camera3D" parent="SpringArmOffset/SpringArm3D" unique_id=1087327110]
 current = true

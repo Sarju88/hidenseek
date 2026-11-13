@@ -421,8 +421,13 @@ func _update_focus(actor: Character) -> void:
  if can_interact(str(actor.name).to_int()) and actor.hidden_spot_id.is_empty() and not actor.hiding_busy and not _blocked():
   var camera := get_viewport().get_camera_3d()
   if camera:
-   var from := camera.global_position
-   var query := PhysicsRayQueryParameters3D.create(from, from - camera.global_basis.z * (RANGE + from.distance_to(actor.global_position + Vector3.UP * 1.35)), 2 | 32)
+   var direction := -camera.global_basis.z
+   var chest := actor.global_position + Vector3.UP * 1.35
+   # A third-person camera can sit behind a wall the player already passed.
+   # Start on the view ray beside the player; _can_interact still checks the
+   # player's range and line of sight, so walls ahead cannot be bypassed.
+   var from := camera.global_position + direction * maxf(0.0, (chest - camera.global_position).dot(direction))
+   var query := PhysicsRayQueryParameters3D.create(from, camera.global_position + direction * (RANGE + camera.global_position.distance_to(chest)), 2 | 32)
    query.collide_with_areas = true
    query.exclude = [actor.get_rid()]
    var hit := actor.get_world_3d().direct_space_state.intersect_ray(query)
