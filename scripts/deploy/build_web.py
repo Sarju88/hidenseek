@@ -10,7 +10,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 DIRECTORIES = ["assets", "scenes/level", "scenes/ui", "scenes/items", "scripts/audio", "scripts/hiding", "scripts/inventory", "scripts/items", "scripts/ui", "scripts/shooter"]
-FILES = ["icon.png", "scripts/level/level.gd", "scripts/player/player.gd", "scripts/player/spring_arm_offset.gd", "scripts/player/3d_godot_robot.gd", "scripts/autoload/game_manager.gd", "scripts/autoload/network.gd", "scripts/autoload/item_database.gd", "scripts/safe_zone.gd"]
+FILES = ["icon.png", "scripts/level/level.gd", "scripts/player/player.gd", "scripts/player/spring_arm_offset.gd", "scripts/player/3d_godot_robot.gd", "scripts/autoload/game_manager.gd", "scripts/autoload/network.gd", "scripts/autoload/cloudflare_peer.gd", "scripts/autoload/item_database.gd", "scripts/safe_zone.gd"]
 
 def main():
     parser = argparse.ArgumentParser()

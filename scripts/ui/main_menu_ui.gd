@@ -16,15 +16,15 @@ const SAFE_AREA_MARGIN := 24.0
 
 
 func _ready() -> void:
-	$MainContainer/MainMenu/Option3/Label.text = "Server address : "
-	address_input.placeholder_text = "127.0.0.1:8080"
+	$MainContainer/MainMenu/Option3/Label.text = "Room code / server : "
+	address_input.placeholder_text = "friends"
 	address_input.max_length = 253
 	address_input.custom_minimum_size.x = 250
 	if OS.has_feature("web"):
 		$MainContainer/MainMenu/Option4.hide()
 	var help := Label.new()
 	help.name = "ConnectionStatus"
-	help.text = "Desktop Host starts a server. Join enters its address." if not OS.has_feature("web") else "Enter a running game server's address. Desktop Host or the server app provides it."
+	help.text = "Enter a room code. Host creates it; friends enter the same code and Join. The host must keep this tab open."
 	help.add_theme_font_size_override("font_size", 18)
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

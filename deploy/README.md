@@ -101,3 +101,47 @@ the same split, with the Godot server as that backend. For a temporary public
 server, run `ngrok http 8080` beside it and enter the assigned hostname as
 `wss://YOUR-HOST.ngrok-free.dev` in the game. The game website's custom domain
 and the multiplayer server address are separate.
+
+
+## Cloudflare browser rooms
+
+The production game uses `wss://relay.arjunrao.dev/room/ROOM_CODE`.
+Enter a short room code (letters, numbers, `_` or `-`, up to 32 characters).
+Host creates a room; up to nine friends enter the same code and Join.
+A blank code uses `friends`. Use an uncommon code for a private group; codes
+are not passwords. Rooms are case insensitive.
+
+The host browser is Godot peer 1 and runs the authoritative gameplay logic.
+Cloudflare Durable Objects forward Godot binary RPC packets and track room
+membership. They do not run Godot or simulate the world. No home computer,
+ngrok, Docker, or separate game server is needed for this mode. The host must
+keep the game tab open and active; closing it disconnects the room. A new
+host creates a new session rather than recovering the old round.
+
+Explicit `ws://` / `wss://` server addresses still support dedicated Godot
+servers. The relay is a separate protocol and uses `CloudflarePeer`, a
+`MultiplayerPeerExtension`, instead of `WebSocketMultiplayerPeer`.
+
+Relay source and deployment config live in `relay/`. Deploy with:
+
+```sh
+cd relay
+npm ci
+npm run deploy
+```
+
+Verify the relay locally or after deployment:
+
+```sh
+node relay/test.mjs
+RELAY_URL=wss://relay.arjunrao.dev node relay/test.mjs
+```
+
+The test creates temporary isolated rooms, checks membership, binary packet
+routing, sender IDs, duplicate hosts, room isolation, kicks, and host departure.
+For local testing use `npm run dev` in `relay/`, then enter
+`ws://127.0.0.1:8787/room/test-room` in the game.
+
+Rebuild production with `python3 scripts/deploy/build_web.py` and publish
+`exports/web-pages` to `gh-pages`, preserving `CNAME` and `.nojekyll`.
+Cloudflare usage is subject to the account's Workers/Durable Objects limits.

@@ -1,0 +1,10 @@
+{
+  "name": "hidenseek-relay",
+  "main": "worker.js",
+  "account_id": "39110bda1aa714f8231c7797c89f1bd1",
+  "compatibility_date": "2026-11-12",
+  "durable_objects": {"bindings": [{"name": "ROOMS", "class_name": "GameRoom"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["GameRoom"]}],
+  "observability": {"enabled": true, "head_sampling_rate": 0.01, "traces": {"enabled": true, "head_sampling_rate": 0.01}},
+  "routes": [{"pattern": "relay.arjunrao.dev", "custom_domain": true}]
+}

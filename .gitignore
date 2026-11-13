@@ -1,3 +1,7 @@
 .godot/
 exports/
 *.before-godot-ai
+
+.wrangler/
+node_modules/
+__pycache__/

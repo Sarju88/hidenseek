@@ -40,7 +40,7 @@ for _ in range(45):
  if len(h['players'])==2 and len(g['players'])==2:break
  time.sleep(.4)
 else:raise RuntimeError('Peers failed to connect: '+json.dumps([{k:v for k,v in s.items() if k!='code'} for s in [h,g]]))
-check(h['peer']>1 and g['peer']>1 and h['peer']!=g['peer'],'Two browser clients connect by IP:port')
+check(h['peer']>=1 and g['peer']>1 and h['peer']!=g['peer'],'Two browser players connect with distinct peer IDs')
 check(h['session_host']==h['peer'],'Browser Host creates the server session')
 check(not h['main_menu'] and not g['main_menu'],'Joining enters the game without code panels')
 check(h['phase']=='lobby' and h['locked'] and g['locked'], 'All players frozen in lobby')

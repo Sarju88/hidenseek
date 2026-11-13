@@ -3,6 +3,8 @@ extends Node
 signal player_connected(peer_id, player_info)
 signal server_disconnected
 
+const RELAY_BASE := "wss://relay.arjunrao.dev/room/"
+const RelayPeer = preload("res://scripts/autoload/cloudflare_peer.gd")
 const SERVER_ADDRESS: String = "127.0.0.1"
 const SERVER_PORT: int = 8080
 # Tests and dedicated deployments can select an isolated port before connecting.
@@ -43,6 +45,7 @@ func _ready() -> void:
 
 
 func start_host(nickname: String, skin_color_str: String, address: String = "") -> Error:
+	if is_relay_address(address): return _connect_relay(nickname, skin_color_str, address, true)
 	if OS.has_feature("web"):
 		# A browser cannot listen on a TCP port. Ask the addressed server to
 		# start a game, using exactly the same address field as Join.
@@ -74,6 +77,7 @@ func start_host(nickname: String, skin_color_str: String, address: String = "") 
 
 
 func join_game(nickname: String, skin_color_str: String, address: String = SERVER_ADDRESS, create_game: bool = false) -> Error:
+	if is_relay_address(address): return _connect_relay(nickname, skin_color_str, address, create_game)
 	var endpoint := parse_server_address(address)
 	if endpoint.is_empty():
 		_set_status("Enter a server address such as 127.0.0.1:8080.")
@@ -222,6 +226,10 @@ func _on_player_disconnected(id):
 
 
 func _on_connection_failed():
+	if is_relay_address(_last_address):
+		_finish_session()
+		_set_status("Room unavailable. Check the code, Host first, or Join an existing room.")
+		return
 	_finish_session()
 	_set_status("Could not connect to %s. Start Desktop Host or the game server at that address." % address_for_display(_last_address))
 
@@ -409,3 +417,40 @@ func _drop_rejected_peer(peer_id: int) -> void:
 	if multiplayer.has_multiplayer_peer() and multiplayer.multiplayer_peer is WebSocketMultiplayerPeer:
 		var peer := multiplayer.multiplayer_peer as WebSocketMultiplayerPeer
 		if multiplayer.get_peers().has(peer_id): peer.get_peer(peer_id).close(1000, "Session not accepted")
+
+
+func is_relay_address(address: String) -> bool:
+	var clean := address.strip_edges()
+	if clean.is_empty(): return DisplayServer.get_name() != "headless"
+	return not (clean.contains(".") or clean.contains(":") or clean.contains("/")) or clean.begins_with(RELAY_BASE) or clean.begins_with("ws://127.0.0.1:8787/room/")
+
+func _connect_relay(nickname: String, skin: String, address: String, hosting: bool) -> Error:
+	var room := address.strip_edges()
+	var url := room
+	if not room.contains("://"):
+		if room.is_empty(): room = "friends"
+		if room.length() > 32: return ERR_INVALID_PARAMETER
+		for character in room:
+			if not character.to_lower() in "abcdefghijklmnopqrstuvwxyz0123456789_-": return ERR_INVALID_PARAMETER
+		url = RELAY_BASE + room.to_lower()
+	var peer := RelayPeer.new()
+	var error := peer.connect_room(url, hosting)
+	if error != OK: return error
+	player_info = {"nick":sanitize_nickname(nickname, "Host" if hosting else "Player"), "skin":skin_str_to_e(skin)}
+	_create_game = false
+	_last_address = url
+	_session_active = true
+	_connecting = true
+	_connection_deadline = Time.get_ticks_msec() + 15000
+	peer.relay_ready.connect(func():
+		if hosting:
+			_connecting = false
+			session_host_id = 1
+			players[1] = player_info.duplicate()
+			player_connected.emit(1, players[1])
+			_set_status("Room ready. Share the room code with friends and keep this tab open.")
+	)
+	peer.relay_error.connect(func(message: String): _set_status(message))
+	multiplayer.multiplayer_peer = peer
+	_set_status("Opening Cloudflare room…" if hosting else "Joining Cloudflare room…")
+	return OK
