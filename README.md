@@ -6,7 +6,7 @@ storage boxes, and in low cabinets. Seekers inspect spots to find hiders.
 
 ## Play
 
-Browser build: https://sarju88.github.io/hidenseek/
+Browser build: https://hidenseek.arjunrao.dev
 
 - WASD: move; mouse: look; Space: jump; Escape: pause.
 - E: hide, exit, or check the object you are looking at.
@@ -16,7 +16,23 @@ Browser build: https://sarju88.github.io/hidenseek/
 - Caught players and late joins wait for the next round.
 - White outline + hand + E keycap: an interactable hiding spot.
 
-## Host and join by address
+## Play together with Cloudflare rooms
+
+1. Everyone opens https://hidenseek.arjunrao.dev.
+2. Enter a shared room code, such as `friends42`, in **Room code / server**.
+3. One player clicks **Host**; everyone else enters the same code and clicks **Join**.
+4. With at least two players connected, the host clicks **Start Game**.
+
+Cloudflare relays the multiplayer packets at `relay.arjunrao.dev`; the host
+browser runs the game session. No ngrok, home server, or desktop installation
+is needed. Keep the host tab open and active: closing it ends the room.
+Up to 10 players can join each room. Codes are case insensitive, accept letters,
+numbers, `_` and `-`, and have a 32-character limit. A blank code uses `friends`.
+Choose an uncommon code for your group; room codes are not passwords.
+
+The relay source, configuration, and tests are in [relay/](relay/README.md).
+
+## Optional dedicated server by address
 
 1. In the desktop game, enter `127.0.0.1:8080` and click **Host**.
 2. Another desktop or browser client on the same computer enters
@@ -24,8 +40,8 @@ Browser build: https://sarju88.github.io/hidenseek/
 3. For other computers, use the host computer's LAN/public address instead
    of `127.0.0.1` (which always means the player's own computer).
 
-All clients now use WebSocket multiplayer. No invite/reply codes or pairing
-panels are involved. The host uses the port from the address field.
+Explicit server addresses use WebSocket multiplayer. A desktop Host uses the
+port from the address field; short room codes use the Cloudflare relay instead.
 
 A dedicated server can also be started from this project:
 
@@ -33,10 +49,10 @@ A dedicated server can also be started from this project:
 ./run_headless_server.sh --port=8080
 ```
 
-Browsers cannot open a listening server port. Browser **Host** connects to the
-entered game server and starts a game there; **Join** connects to its existing
-game. A desktop Host or dedicated server must be running at that address.
-Browser Host reports an existing session and asks you to use Join instead.
+When an explicit server address is entered, browser **Host** connects to that
+Godot server and starts a game there; **Join** connects to its existing game.
+This optional mode requires a desktop Host or dedicated server at that address.
+With a room code, the browser hosts through Cloudflare instead.
 
 The GitHub Pages HTTPS build can join loopback addresses directly in supported
 browsers. Public internet servers must provide a secure `wss://` endpoint,
@@ -49,7 +65,8 @@ Quit is absent in web menus. Escape opens Pause; Resume and Main Menu work.
 ## Develop and export
 
 Open `project.godot` in Godot 4.7.2 with the Compatibility renderer. Run the main
-scene. Select Host to play locally or Join for a desktop LAN session.
+scene. Enter a room code and select Host or Join for Cloudflare multiplayer,
+or enter an explicit server address for a desktop LAN session.
 
 Install the matching Godot Web export templates, then run:
 

@@ -1,7 +1,7 @@
 # GitHub Pages web deployment
 
 Source repository: https://github.com/Sarju88/hidenseek
-Published game: https://sarju88.github.io/hidenseek/
+Published game: https://hidenseek.arjunrao.dev
 
 Build with the installed Godot 4.7.2 engine and matching single-threaded Web
 export templates:
@@ -75,33 +75,15 @@ both clients. It is excluded from production exports.
 
 ## Cloudflare custom domain
 
-Desired hostname: `hidenseek.arjunrao.dev`.
+The live hostname is `hidenseek.arjunrao.dev`, with HTTPS enforced by GitHub Pages.
+Cloudflare DNS has a DNS-only CNAME from `hidenseek` to `sarju88.github.io`.
+Preserve `gh-pages/CNAME` and `deploy/CNAME` in future web exports.
+The separate `relay.arjunrao.dev` hostname is a Cloudflare Worker custom domain.
 
-Create a DNS-only CNAME record in the `arjunrao.dev` zone:
-
-- Name: `hidenseek`
-- Target: `sarju88.github.io`
-- Proxy status: DNS only (grey cloud)
-- TTL: Auto
-
-Set the same hostname as the repository's Pages custom domain, preserve it in
-`gh-pages/CNAME`, then enable HTTPS after GitHub provisions its certificate.
-Do not change the domain's nameservers, root records, or unrelated subdomains.
-
-Automation only needs a Cloudflare API token with Zone / DNS / Edit and Zone /
-Zone / Read, restricted to the `arjunrao.dev` zone. Store it in a local file with
-0600 permissions or a local environment variable. Do not put the token in this
-repository or send it in chat. Domain configuration is pending that access or a
-manual DNS record change by the owner.
-
-An installed Chrome website remains a browser client; installation does not
-give it permission to listen as a game server. Blooket/Kahoot-style hosting
-means the host browser controls a room on an online backend. This project uses
-the same split, with the Godot server as that backend. For a temporary public
-server, run `ngrok http 8080` beside it and enter the assigned hostname as
-`wss://YOUR-HOST.ngrok-free.dev` in the game. The game website's custom domain
-and the multiplayer server address are separate.
-
+The optional dedicated Godot server can still be exposed through ngrok:
+run `ngrok http 8080` beside it and enter the assigned hostname as
+`wss://YOUR-HOST.ngrok-free.dev` in the game. Normal browser rooms use the
+Cloudflare relay below and do not require that server or tunnel.
 
 ## Cloudflare browser rooms
 
