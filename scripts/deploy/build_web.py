@@ -59,7 +59,10 @@ def main():
         subprocess.run([godot, "--headless", "--path", str(stage), "--editor", "--import"], check=True)
         subprocess.run([godot, "--headless", "--path", str(stage), "--export-release", args.platform, str(output / ("index.html" if args.platform == "Web" else "HideSeek.x86_64"))], check=True)
     for sidecar in output.glob("*.import"): sidecar.unlink()
-    if args.platform == "Web": (output / ".nojekyll").touch()
+    if args.platform == "Web":
+        (output / ".nojekyll").touch()
+        if not args.browser_test:
+            shutil.copy2(ROOT / "deploy/CNAME", output / "CNAME")
     print(f"{args.platform} build ready: {output}")
 
 if __name__ == "__main__":
